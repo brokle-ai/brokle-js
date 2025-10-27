@@ -34,7 +34,8 @@ import type { BrokleConfig } from './types/config';
  */
 export class BrokleSpanProcessor implements SpanProcessor {
   private processor: SpanProcessor;
-  // private config: BrokleConfig; // Reserved for future features (PII masking, etc.)
+  private environment: string;
+  private release: string;
 
   /**
    * Creates a new BrokleSpanProcessor
@@ -43,7 +44,8 @@ export class BrokleSpanProcessor implements SpanProcessor {
    * @param config - Brokle configuration
    */
   constructor(exporter: SpanExporter, config: BrokleConfig) {
-    // this.config = config;
+    this.environment = config.environment;
+    this.release = config.release;
 
     if (config.flushSync) {
       // SimpleSpanProcessor for serverless/lambda environments
@@ -75,9 +77,19 @@ export class BrokleSpanProcessor implements SpanProcessor {
 
   /**
    * Called when a span is started
-   * Pre-processing hook (if needed in future)
+   * Sets environment and release as span attributes
    */
   onStart(span: Span, parentContext: Context): void {
+    // Add environment as span attribute (not resource attribute)
+    if (this.environment) {
+      span.setAttribute('brokle.environment', this.environment);
+    }
+
+    // Add release as span attribute (for experiment tracking)
+    if (this.release) {
+      span.setAttribute('brokle.release', this.release);
+    }
+
     this.processor.onStart(span, parentContext);
   }
 

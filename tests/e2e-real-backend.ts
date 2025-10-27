@@ -18,6 +18,7 @@ const client = getClient({
   apiKey: BROKLE_API_KEY,
   baseUrl: BROKLE_BASE_URL,
   environment: 'e2e-test-ts',
+  release: 'v1.0.0-e2e',
   debug: true,
 });
 
@@ -27,8 +28,8 @@ async function test1_SimpleSpan() {
   console.log('\n=== Test 1: Simple Span ===');
 
   await client.traced('e2e-simple-span', async (span) => {
-    span.setAttribute(Attrs.USER_ID, 'e2e-user-123');
-    span.setAttribute(Attrs.SESSION_ID, 'e2e-session-456');
+    span.setAttribute(Attrs.USER_ID, 'e2e-user-123');  // user.id
+    span.setAttribute(Attrs.SESSION_ID, 'e2e-session-456');  // session.id
     span.setAttribute(Attrs.TAGS, JSON.stringify(['e2e', 'test', 'simple']));
     span.setAttribute('custom.attribute', 'test-value');
 

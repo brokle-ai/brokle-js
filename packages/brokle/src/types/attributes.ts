@@ -50,10 +50,12 @@ export const BrokleOtelSpanAttributes = {
   BROKLE_STREAMING: 'brokle.streaming',
   BROKLE_PROJECT_ID: 'brokle.project_id',
   BROKLE_ENVIRONMENT: 'brokle.environment',
+  BROKLE_VERSION: 'brokle.version',
+  BROKLE_RELEASE: 'brokle.release',
 
   // ========== Filterable Metadata ==========
-  USER_ID: 'user_id',
-  SESSION_ID: 'session.id',
+  USER_ID: 'user.id',  // OTEL standard
+  SESSION_ID: 'session.id',  // OTEL standard
   TAGS: 'tags',
   METADATA: 'metadata',
 } as const;

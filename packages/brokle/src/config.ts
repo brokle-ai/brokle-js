@@ -146,13 +146,3 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
   return config;
 }
 
-/**
- * Extracts project ID from API key (for compatibility)
- * Note: In the actual implementation, project ID comes from backend validation
- * This is a placeholder for SDK resource attributes
- */
-export function extractProjectId(apiKey: string): string {
-  // For now, return a hash of the API key
-  // In production, the backend maps API keys to project IDs
-  return `proj_${apiKey.substring(3, 15)}`;
-}

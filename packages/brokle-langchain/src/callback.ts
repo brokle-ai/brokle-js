@@ -24,6 +24,8 @@ export interface BrokleLangChainCallbackConfig {
   tags?: string[];
   /** Custom metadata */
   metadata?: Record<string, unknown>;
+  /** Version for A/B testing and experiment tracking */
+  version?: string;
   /** Debug logging */
   debug?: boolean;
 }
@@ -65,6 +67,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
   private sessionId?: string;
   private tags: string[];
   private metadata: Record<string, unknown>;
+  private version?: string;
 
   constructor(config: BrokleLangChainCallbackConfig = {}) {
     super();
@@ -79,6 +82,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     this.sessionId = config.sessionId;
     this.tags = config.tags || [];
     this.metadata = config.metadata || {};
+    this.version = config.version;
   }
 
   /**
@@ -180,6 +184,9 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     }
     if (Object.keys(allMetadata).length > 0) {
       attributes[Attrs.METADATA] = JSON.stringify(allMetadata);
+    }
+    if (this.version) {
+      attributes[Attrs.BROKLE_VERSION] = this.version;
     }
 
     // Start span (manual control - keep open until handleLLMEnd)
@@ -318,6 +325,9 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     if (Object.keys(allMetadata).length > 0) {
       attributes[Attrs.METADATA] = JSON.stringify(allMetadata);
     }
+    if (this.version) {
+      attributes[Attrs.BROKLE_VERSION] = this.version;
+    }
 
     const span = this.tracer.startSpan(spanName, { attributes }, parentContext);
 
@@ -419,6 +429,9 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     }
     if (Object.keys(allMetadata).length > 0) {
       attributes[Attrs.METADATA] = JSON.stringify(allMetadata);
+    }
+    if (this.version) {
+      attributes[Attrs.BROKLE_VERSION] = this.version;
     }
 
     const span = this.tracer.startSpan(spanName, { attributes }, parentContext);

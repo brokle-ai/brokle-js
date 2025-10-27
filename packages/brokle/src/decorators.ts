@@ -24,6 +24,8 @@ export interface ObserveOptions {
   tags?: string[];
   /** Custom metadata */
   metadata?: Record<string, unknown>;
+  /** Version for A/B testing and experiment tracking */
+  version?: string;
   /** Capture function input as span attribute */
   captureInput?: boolean;
   /** Capture function output as span attribute */
@@ -91,6 +93,9 @@ export function observe(options: ObserveOptions = {}) {
       }
       if (options.metadata && Object.keys(options.metadata).length > 0) {
         attrs[Attrs.METADATA] = JSON.stringify(options.metadata);
+      }
+      if (options.version) {
+        attrs[Attrs.BROKLE_VERSION] = options.version;
       }
 
       // Capture input if requested
@@ -187,6 +192,9 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
     }
     if (options.metadata && Object.keys(options.metadata).length > 0) {
       attrs[Attrs.METADATA] = JSON.stringify(options.metadata);
+    }
+    if (options.version) {
+      attrs[Attrs.BROKLE_VERSION] = options.version;
     }
 
     if (options.captureInput) {

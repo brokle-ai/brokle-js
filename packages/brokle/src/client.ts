@@ -8,9 +8,8 @@ import { type Span, type Tracer, type Attributes, SpanStatusCode } from '@opente
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { TraceIdRatioBasedSampler, AlwaysOnSampler } from '@opentelemetry/sdk-trace-base';
 import { Resource } from '@opentelemetry/resources';
-import { SEMRESATTRS_SERVICE_NAME, SEMRESATTRS_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import type { BrokleConfig, BrokleConfigInput } from './types/config';
-import { validateConfig, loadFromEnv, extractProjectId } from './config';
+import { validateConfig, loadFromEnv } from './config';
 import { createBrokleExporter } from './exporter';
 import { BrokleSpanProcessor } from './processor';
 import { Attrs } from './types/attributes';
@@ -52,15 +51,11 @@ export class Brokle {
       });
     }
 
-    // Create Resource with project and environment attributes
-    const resource = Resource.default().merge(
-      new Resource({
-        [SEMRESATTRS_SERVICE_NAME]: 'brokle-sdk',
-        [SEMRESATTRS_SERVICE_VERSION]: VERSION,
-        [Attrs.BROKLE_PROJECT_ID]: extractProjectId(this.config.apiKey),
-        [Attrs.BROKLE_ENVIRONMENT]: this.config.environment,
-      })
-    );
+    // Create Resource (respects OTEL environment variables)
+    // Note: We don't set service.name to respect user's OTEL_SERVICE_NAME
+    // SDK identification is done via instrumentation scope (getTracer name/version)
+    // Project ID comes from backend auth, environment set as span attribute
+    const resource = Resource.default();
 
     // Create sampler for trace-level sampling
     // Uses TraceIdRatioBasedSampler for deterministic sampling
@@ -110,6 +105,7 @@ export class Brokle {
    * @param name - Span name
    * @param fn - Async function to execute within span
    * @param attributes - Optional span attributes
+   * @param options - Optional configuration (version for A/B testing)
    * @returns Result of the function
    *
    * @example
@@ -117,15 +113,22 @@ export class Brokle {
    * const result = await client.traced('my-operation', async (span) => {
    *   span.setAttribute('custom', 'value');
    *   return processData();
-   * });
+   * }, undefined, { version: '1.0' });
    * ```
    */
   async traced<T>(
     name: string,
     fn: (span: Span) => Promise<T>,
-    attributes?: Attributes
+    attributes?: Attributes,
+    options?: { version?: string }
   ): Promise<T> {
-    return await this.tracer.startActiveSpan(name, { attributes }, async (span) => {
+    const attrs = { ...(attributes ?? {}) };  // Fix: nullish coalescing for undefined
+
+    if (options?.version) {
+      attrs[Attrs.BROKLE_VERSION] = options.version;
+    }
+
+    return await this.tracer.startActiveSpan(name, { attributes: attrs }, async (span) => {
       try {
         const result = await fn(span);
         span.setStatus({ code: SpanStatusCode.OK });
@@ -151,6 +154,7 @@ export class Brokle {
    * @param model - Model name (e.g., 'gpt-4')
    * @param provider - Provider name (e.g., 'openai')
    * @param fn - Async function to execute
+   * @param options - Optional configuration (version for A/B testing)
    * @returns Result of the function
    *
    * @example
@@ -159,14 +163,15 @@ export class Brokle {
    *   const response = await openai.chat.completions.create({...});
    *   span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([...]));
    *   return response;
-   * });
+   * }, { version: '1.0' });
    * ```
    */
   async generation<T>(
     name: string,
     model: string,
     provider: string,
-    fn: (span: Span) => Promise<T>
+    fn: (span: Span) => Promise<T>,
+    options?: { version?: string }
   ): Promise<T> {
     const spanName = `${name} ${model}`;
     const attrs: Attributes = {
@@ -176,7 +181,8 @@ export class Brokle {
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
     };
 
-    return await this.traced(spanName, fn, attrs);
+    // Forward options (including version) to traced()
+    return await this.traced(spanName, fn, attrs, options);
   }
 
   /**
