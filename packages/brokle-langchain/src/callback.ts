@@ -160,7 +160,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
 
     // Build attributes object
     const attributes: Record<string, any> = {
-      [Attrs.BROKLE_OBSERVATION_TYPE]: 'generation',
+      [Attrs.BROKLE_SPAN_TYPE]: 'generation',
       [Attrs.GEN_AI_PROVIDER_NAME]: provider,
       [Attrs.GEN_AI_OPERATION_NAME]: 'chat',
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
@@ -304,7 +304,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
 
     // Build attributes object
     const attributes: Record<string, any> = {
-      [Attrs.BROKLE_OBSERVATION_TYPE]: 'span',
+      [Attrs.BROKLE_SPAN_TYPE]: 'span',
       'chain.type': chainType,
       'chain.input': JSON.stringify(inputs),
     };
@@ -409,7 +409,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
 
     // Build attributes object
     const attributes: Record<string, any> = {
-      [Attrs.BROKLE_OBSERVATION_TYPE]: 'tool',
+      [Attrs.BROKLE_SPAN_TYPE]: 'tool',
       'tool.name': toolName,
       'tool.input': input,
     };

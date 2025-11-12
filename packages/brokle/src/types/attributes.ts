@@ -44,7 +44,7 @@ export const BrokleOtelSpanAttributes = {
   ANTHROPIC_REQUEST_TOP_K: 'anthropic.request.top_k',
 
   // ========== Brokle Custom ==========
-  BROKLE_OBSERVATION_TYPE: 'brokle.observation_type',
+  BROKLE_SPAN_TYPE: 'brokle.span_type',
   BROKLE_USAGE_TOTAL_TOKENS: 'brokle.usage.total_tokens',
   BROKLE_USAGE_LATENCY_MS: 'brokle.usage.latency_ms',
   BROKLE_STREAMING: 'brokle.streaming',
@@ -66,9 +66,9 @@ export type AttributeKey = typeof BrokleOtelSpanAttributes[keyof typeof BrokleOt
 export const Attrs = BrokleOtelSpanAttributes;
 
 /**
- * Observation types for categorizing AI operations
+ * Span types for categorizing AI operations
  */
-export enum ObservationType {
+export enum SpanType {
   GENERATION = 'generation',
   SPAN = 'span',
   EVENT = 'event',

@@ -109,8 +109,8 @@ async function test3_LLMGeneration() {
   console.log('✓ LLM generation span created with GenAI attributes');
 }
 
-async function test4_MultipleObservationTypes() {
-  console.log('\n=== Test 4: Multiple Observation Types ===');
+async function test4_MultipleSpanTypes() {
+  console.log('\n=== Test 4: Multiple Span Types ===');
 
   await client.traced('e2e-multi-type-parent', async (parentSpan) => {
     // Generation
@@ -122,24 +122,24 @@ async function test4_MultipleObservationTypes() {
 
     // Regular span
     await client.traced('e2e-processing', async (span) => {
-      span.setAttribute(Attrs.BROKLE_OBSERVATION_TYPE, 'span');
+      span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'span');
       span.setAttribute('processing.type', 'data-transform');
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     // Tool call (simulated)
     await client.traced('e2e-tool-calculator', async (span) => {
-      span.setAttribute(Attrs.BROKLE_OBSERVATION_TYPE, 'tool');
+      span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'tool');
       span.setAttribute('tool.name', 'calculator');
       span.setAttribute('tool.input', '25 * 4');
       span.setAttribute('tool.output', '100');
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
-    return { observationTypes: ['generation', 'span', 'tool'] };
+    return { spanTypes: ['generation', 'span', 'tool'] };
   });
 
-  console.log('✓ Multiple observation types created');
+  console.log('✓ Multiple span types created');
 }
 
 async function test5_WithSampling() {
@@ -164,7 +164,7 @@ function printVerificationInstructions() {
   console.log('    --user brokle --password brokle_password \\');
   console.log('    --query "');
   console.log('    SELECT');
-  console.log('      observation_id,');
+  console.log('      span_id,');
   console.log('      type,');
   console.log('      name,');
   console.log('      provider,');
@@ -172,13 +172,13 @@ function printVerificationInstructions() {
   console.log('      input_tokens,');
   console.log('      output_tokens,');
   console.log('      user_id');
-  console.log('    FROM observations');
+  console.log('    FROM spans');
   console.log('    WHERE user_id LIKE \'e2e-%\'');
   console.log('    ORDER BY start_time DESC');
   console.log('    LIMIT 20');
   console.log('    FORMAT Vertical"');
 
-  console.log('\nExpected observations:');
+  console.log('\nExpected spans:');
   console.log('  • e2e-simple-span (span)');
   console.log('  • e2e-parent-span (span)');
   console.log('  • e2e-child-span-1 (span)');
@@ -187,7 +187,7 @@ function printVerificationInstructions() {
   console.log('  • chat gpt-3.5-turbo (generation)');
   console.log('  • e2e-processing (span)');
   console.log('  • e2e-tool-calculator (tool)');
-  console.log('\nTotal: ~8 observations expected');
+  console.log('\nTotal: ~8 spans expected');
 }
 
 // ========== Main Execution ==========
@@ -207,7 +207,7 @@ async function main() {
     await test1_SimpleSpan();
     await test2_NestedSpans();
     await test3_LLMGeneration();
-    await test4_MultipleObservationTypes();
+    await test4_MultipleSpanTypes();
     await test5_WithSampling();
 
     // Flush all spans

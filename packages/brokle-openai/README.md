@@ -96,7 +96,7 @@ const response = await tracedOpenAI.chat.completions.create({
 ```
 
 **Span Name**: `chat {model}`
-**Observation Type**: `generation`
+**Span Type**: `generation`
 
 ### Text Completions
 
@@ -109,7 +109,7 @@ const response = await tracedOpenAI.completions.create({
 ```
 
 **Span Name**: `completion {model}`
-**Observation Type**: `generation`
+**Span Type**: `generation`
 
 ### Embeddings
 
@@ -121,7 +121,7 @@ const response = await tracedOpenAI.embeddings.create({
 ```
 
 **Span Name**: `embedding {model}`
-**Observation Type**: `embedding`
+**Span Type**: `embedding`
 
 ## Advanced Usage
 

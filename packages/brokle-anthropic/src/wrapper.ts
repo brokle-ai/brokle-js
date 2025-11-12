@@ -89,7 +89,7 @@ function tracedMessagesCreate(originalFn: Function, brokleClient: any) {
       const startTime = Date.now();
 
       // Set initial attributes
-      span.setAttribute(Attrs.BROKLE_OBSERVATION_TYPE, 'generation');
+      span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
       span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.ANTHROPIC);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'chat');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);

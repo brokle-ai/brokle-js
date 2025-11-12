@@ -93,7 +93,7 @@ const response = await tracedAnthropic.messages.create({
 ```
 
 **Span Name**: `chat {model}`
-**Observation Type**: `generation`
+**Span Type**: `generation`
 
 ### With System Prompt
 

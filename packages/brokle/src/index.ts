@@ -19,7 +19,7 @@ export type { ObserveOptions } from './decorators';
 export {
   Attrs,
   BrokleOtelSpanAttributes,
-  ObservationType,
+  SpanType,
   LLMProvider,
   OperationType,
 } from './types/attributes';

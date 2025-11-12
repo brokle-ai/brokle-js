@@ -175,7 +175,7 @@ export class Brokle {
   ): Promise<T> {
     const spanName = `${name} ${model}`;
     const attrs: Attributes = {
-      [Attrs.BROKLE_OBSERVATION_TYPE]: 'generation',
+      [Attrs.BROKLE_SPAN_TYPE]: 'generation',
       [Attrs.GEN_AI_PROVIDER_NAME]: provider,
       [Attrs.GEN_AI_OPERATION_NAME]: name,
       [Attrs.GEN_AI_REQUEST_MODEL]: model,

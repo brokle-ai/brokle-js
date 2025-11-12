@@ -50,7 +50,7 @@ export type { ObserveOptions } from './decorators';
 export {
   Attrs,
   BrokleOtelSpanAttributes,
-  ObservationType,
+  SpanType,
   LLMProvider,
   OperationType,
 } from './types/attributes';
@@ -496,8 +496,8 @@ span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, 20);
 
 ### Brokle Custom Attributes
 ```typescript
-// Observation type
-span.setAttribute(Attrs.BROKLE_OBSERVATION_TYPE, 'generation');
+// Span type
+span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
 
 // A/B testing
 span.setAttribute(Attrs.BROKLE_VERSION, '1.0');

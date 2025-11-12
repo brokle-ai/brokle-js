@@ -74,7 +74,7 @@ Every LLM call is automatically traced with:
 - `gen_ai.response.model` = Actual model used
 
 **Span Name**: `chat {model}`
-**Observation Type**: `generation`
+**Span Type**: `generation`
 
 ### Chains
 
@@ -84,7 +84,7 @@ Chain execution is traced with:
 - `chain.type` = Chain type (e.g., "llm_chain")
 - `chain.input` = Input data (JSON)
 - `chain.output` = Output data (JSON)
-- `brokle.observation_type` = "span"
+- `brokle.span_type` = "span"
 
 **Span Name**: `chain {type}`
 
@@ -96,7 +96,7 @@ Tool calls are traced with:
 - `tool.name` = Tool name
 - `tool.input` = Tool input
 - `tool.output` = Tool output
-- `brokle.observation_type` = "tool"
+- `brokle.span_type` = "tool"
 
 **Span Name**: `tool {name}`
 

@@ -14,7 +14,7 @@ import { Attrs } from './types/attributes';
 export interface ObserveOptions {
   /** Custom span name (default: method name) */
   name?: string;
-  /** Observation type */
+  /** Span type */
   asType?: 'span' | 'generation' | 'event' | 'tool';
   /** User ID for filtering */
   userId?: string;
@@ -78,7 +78,7 @@ export function observe(options: ObserveOptions = {}) {
 
       // Build span attributes
       const attrs: Record<string, any> = {
-        [Attrs.BROKLE_OBSERVATION_TYPE]: options.asType || 'span',
+        [Attrs.BROKLE_SPAN_TYPE]: options.asType || 'span',
       };
 
       // Add user/session filtering attributes
@@ -178,7 +178,7 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
     const tracer = client.getTracer();
 
     const attrs: Record<string, any> = {
-      [Attrs.BROKLE_OBSERVATION_TYPE]: options.asType || 'span',
+      [Attrs.BROKLE_SPAN_TYPE]: options.asType || 'span',
     };
 
     if (options.userId) {
