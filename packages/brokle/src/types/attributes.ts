@@ -44,7 +44,8 @@ export const BrokleOtelSpanAttributes = {
   ANTHROPIC_REQUEST_TOP_K: 'anthropic.request.top_k',
 
   // ========== Brokle Custom ==========
-  BROKLE_SPAN_TYPE: 'brokle.span_type',
+  BROKLE_SPAN_TYPE: 'brokle.span.type',
+  BROKLE_SPAN_LEVEL: 'brokle.span.level',
   BROKLE_USAGE_TOTAL_TOKENS: 'brokle.usage.total_tokens',
   BROKLE_USAGE_LATENCY_MS: 'brokle.usage.latency_ms',
   BROKLE_STREAMING: 'brokle.streaming',
@@ -52,6 +53,14 @@ export const BrokleOtelSpanAttributes = {
   BROKLE_ENVIRONMENT: 'brokle.environment',
   BROKLE_VERSION: 'brokle.version',
   BROKLE_RELEASE: 'brokle.release',
+
+  // Note: brokle.cost.* attributes are set by BACKEND only (calculated from usage + model pricing)
+  // SDKs should NOT set cost attributes - backend calculates costs server-side
+
+  // ========== Brokle Prompt Management ==========
+  BROKLE_PROMPT_ID: 'brokle.prompt.id',
+  BROKLE_PROMPT_NAME: 'brokle.prompt.name',
+  BROKLE_PROMPT_VERSION: 'brokle.prompt.version',
 
   // ========== Filterable Metadata ==========
   USER_ID: 'user.id',  // OTEL standard
