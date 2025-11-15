@@ -54,7 +54,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/brokle-ai/brokle-js.git"
+    "url": "https://github.com/brokle-ai/brokle-js.git",
+    "directory": "packages/brokle"
+  },
+  "homepage": "https://github.com/brokle-ai/brokle-js/tree/main/packages/brokle#readme",
+  "bugs": {
+    "url": "https://github.com/brokle-ai/brokle-js/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "keywords": [
     "opentelemetry",
