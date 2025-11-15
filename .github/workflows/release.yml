@@ -51,29 +51,65 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create GitHub Releases
+      - name: Create Unified GitHub Release
         if: steps.changesets.outputs.published == 'true'
         uses: actions/github-script@v7
         with:
           script: |
-            const releases = ${{ steps.changesets.outputs.publishedPackages }};
+            const packages = JSON.parse('${{ steps.changesets.outputs.publishedPackages }}');
 
-            for (const release of releases) {
-              const tag = `${release.name}@${release.version}`;
-
-              try {
-                await github.rest.repos.createRelease({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  tag_name: tag,
-                  name: `${release.name}@${release.version}`,
-                  body: `Release ${release.name} version ${release.version}`,
-                  draft: false,
-                  prerelease: false
-                });
-
-                console.log(`✅ Created release for ${tag}`);
-              } catch (error) {
-                console.log(`⚠️  Could not create release for ${tag}: ${error.message}`);
-              }
+            if (packages.length === 0) {
+              console.log('No packages published, skipping release creation');
+              return;
             }
+
+            // All linked packages share the same version
+            const version = packages[0].version;
+            const tag = `v${version}`;
+
+            console.log(`Creating unified release: ${tag}`);
+            console.log(`Packages: ${packages.map(p => p.name).join(', ')}`);
+
+            // Create git tag
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `refs/tags/${tag}`,
+                sha: context.sha
+              });
+              console.log(`✅ Created tag: ${tag}`);
+            } catch (error) {
+              console.log(`⚠️  Tag ${tag} may already exist: ${error.message}`);
+            }
+
+            // Generate release body
+            const packageList = packages.map(p =>
+              `- **${p.name}** ([npm](https://www.npmjs.com/package/${p.name}/v/${p.version}))`
+            ).join('\n');
+
+            const releaseBody = `## Published Packages
+
+${packageList}
+
+## Changes
+
+See individual package CHANGELOGs for detailed changes:
+${packages.map(p => `- [${p.name}/CHANGELOG.md](./packages/${p.name.replace('brokle-', 'brokle-')}/CHANGELOG.md)`).join('\n')}
+
+---
+
+**Full Changelog**: https://github.com/${context.repo.owner}/${context.repo.repo}/compare/v${version}...HEAD`;
+
+            // Create GitHub release
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `v${version}`,
+              body: releaseBody,
+              draft: false,
+              prerelease: version.includes('-alpha') || version.includes('-beta') || version.includes('-rc')
+            });
+
+            console.log(`✅ Created unified release: ${tag}`);
