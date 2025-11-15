@@ -106,15 +106,14 @@ Before running any release command:
 # 1. Ensure you're on main branch with clean working directory
 git status  # Should show: "nothing to commit, working tree clean"
 
-# 2. Ensure you're authenticated with npm
-npm login   # Use brokle-ai account (brokle.project@gmail.com)
-
-# 3. Verify all tests pass
+# 2. Verify all tests pass
 pnpm test
 
-# 4. Verify builds work
+# 3. Verify builds work
 pnpm build
 ```
+
+**Note**: No npm login required! Publishing happens automatically via GitHub Actions.
 
 ### Creating a Release
 
@@ -150,19 +149,24 @@ pnpm release
 
 ### What Happens During Release
 
-release-it automatically:
+**Local (release-it runs on your machine)**:
 
 1. ✅ **Validates**: Clean git, on main branch, upstream configured
-2. ✅ **Cleans & Installs**: `pnpm clean && pnpm install`
+2. ✅ **Installs**: `pnpm install`
 3. ✅ **Builds**: `pnpm build` (all packages)
 4. ✅ **Bumps Versions**: Updates all 4 `package.json` files (0.1.0 → 0.2.0)
 5. ✅ **Commits**: `chore: release v0.2.0`
 6. ✅ **Tags**: Creates git tag `v0.2.0`
-7. ✅ **Pushes**: Git commit + tag
+7. ✅ **Pushes**: Git commit + tag to GitHub
 8. ✅ **GitHub Release**: Auto-generates release notes from commits
-9. ✅ **npm Publish**: Publishes all 4 packages to npm with `latest` tag
 
-**One command does everything!**
+**Automated (GitHub Actions triggered by tag push)**:
+
+9. ✅ **CI Tests**: Runs full test suite
+10. ✅ **npm Publish**: Publishes all 4 packages to npm with `latest` tag
+11. ✅ **Verification**: Confirms packages are live on npm
+
+**Total time**: ~3-5 minutes from `make release-patch` to live on npm!
 
 ### Pre-release Versions
 
@@ -197,20 +201,29 @@ git push origin feat/new-feature
 git checkout main
 git pull origin main
 
-# 4. Preview release
+# 4. Preview release (dry run)
 make release-dry
 
 # 5. Create release
 make release-minor
 
-# 6. Done! ✅
-# - All packages published to npm
-# - Git tag v0.2.0 created
-# - GitHub release created
-# - Commit pushed to main
+# release-it runs locally:
+# ✅ Bumps version to 0.2.0
+# ✅ Commits "chore: release v0.2.0"
+# ✅ Creates tag v0.2.0
+# ✅ Pushes to GitHub
+# ✅ Creates GitHub release
+
+# 6. GitHub Actions automatically (triggered by tag):
+# ✅ Runs CI tests
+# ✅ Publishes all 4 packages to npm
+# ✅ Verifies packages live
+
+# 7. Done! ✅
+# Total time: ~3-5 minutes
 ```
 
-**Total time**: ~2 minutes after merge to main
+**Workflow**: Local release-it → CI publishes to npm (matches Python SDK!)
 
 ---
 

@@ -9,8 +9,11 @@ on:
 
 jobs:
   verify:
-    name: Verify Release
+    name: Verify & Publish Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,6 +30,7 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -36,6 +40,14 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Publish to npm
+        if: github.event_name == 'push'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Publishing all packages to npm..."
+          pnpm -r publish --access public --no-git-checks --tag latest
 
       - name: Verify npm packages published
         if: github.event_name == 'push'
