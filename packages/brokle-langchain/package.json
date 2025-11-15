@@ -1,6 +1,6 @@
 {
   "name": "brokle-langchain",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "LangChain.js integration with automatic Brokle tracing",
   "author": "Brokle AI",
   "license": "MIT",

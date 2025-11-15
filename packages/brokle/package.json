@@ -1,6 +1,6 @@
 {
   "name": "brokle",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenTelemetry-native observability SDK for AI applications",
   "author": "Brokle AI",
   "license": "MIT",
