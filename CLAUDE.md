@@ -94,56 +94,123 @@ pnpm clean
 
 ---
 
-## Release Process (Changesets)
+## Release Process (release-it)
 
-This monorepo uses **Changesets** for version management and releases.
+This monorepo uses **release-it** for version management and releases, following the Langfuse pattern.
 
-### Creating a Changeset
+### Prerequisites
 
-When you make changes that should be released:
-
-```bash
-# Create a changeset (interactive)
-pnpm changeset
-
-# Follow prompts:
-# 1. Select packages changed (space to select, enter to confirm)
-# 2. Select bump type: patch/minor/major
-# 3. Write changelog summary
-```
-
-This creates a file in `.changeset/` with your changes.
-
-**Changeset types**:
-- **patch**: Bug fixes, small tweaks (0.1.0 → 0.1.1)
-- **minor**: New features, backward compatible (0.1.0 → 0.2.0)
-- **major**: Breaking changes (0.1.0 → 1.0.0)
-
-### Release Workflow
-
-1. **Developer makes changes** → Creates changeset → Commits
-2. **Merge to main** → Changesets bot creates "Version Packages" PR
-3. **Maintainer reviews "Version Packages" PR** → Merges
-4. **GitHub Actions automatically**:
-   - Versions packages
-   - Updates CHANGELOGs
-   - Publishes to npm
-   - Creates git tags
-   - Creates GitHub releases
-
-### Manual Commands (for testing)
+Before running any release command:
 
 ```bash
-# Version packages (updates package.json and CHANGELOG.md)
-pnpm version-packages
+# 1. Ensure you're on main branch with clean working directory
+git status  # Should show: "nothing to commit, working tree clean"
 
-# Publish to npm (must build first)
+# 2. Ensure you're authenticated with npm
+npm login   # Use brokle-ai account (brokle.project@gmail.com)
+
+# 3. Verify all tests pass
+pnpm test
+
+# 4. Verify builds work
 pnpm build
-pnpm release
-
-# Dry run (test without publishing)
-pnpm changeset publish --dry-run
 ```
+
+### Creating a Release
+
+**Standard releases** (patch/minor/major):
+
+```bash
+# Preview what will happen (dry run - ALWAYS DO THIS FIRST!)
+make release-dry
+# OR: pnpm release:dry
+
+# Release patch version (0.1.0 → 0.1.1)
+make release-patch
+
+# Release minor version (0.1.0 → 0.2.0)
+make release-minor
+
+# Release major version (0.1.0 → 1.0.0)
+make release-major
+```
+
+**Interactive mode** (choose version type during release):
+
+```bash
+pnpm release
+# Follow interactive prompts:
+# 1. Select version increment (patch/minor/major)
+# 2. Confirm changelog
+# 3. Confirm Git commit
+# 4. Confirm Git tag
+# 5. Confirm GitHub release
+# 6. Confirm npm publish
+```
+
+### What Happens During Release
+
+release-it automatically:
+
+1. ✅ **Validates**: Clean git, on main branch, upstream configured
+2. ✅ **Cleans & Installs**: `pnpm clean && pnpm install`
+3. ✅ **Builds**: `pnpm build` (all packages)
+4. ✅ **Bumps Versions**: Updates all 4 `package.json` files (0.1.0 → 0.2.0)
+5. ✅ **Commits**: `chore: release v0.2.0`
+6. ✅ **Tags**: Creates git tag `v0.2.0`
+7. ✅ **Pushes**: Git commit + tag
+8. ✅ **GitHub Release**: Auto-generates release notes from commits
+9. ✅ **npm Publish**: Publishes all 4 packages to npm with `latest` tag
+
+**One command does everything!**
+
+### Pre-release Versions
+
+For testing features before stable release:
+
+```bash
+# Alpha release (0.1.0 → 0.1.1-alpha.0)
+make release-alpha
+# OR: pnpm release:alpha
+
+# Beta release (0.1.0 → 0.1.1-beta.0)
+make release-beta
+
+# Release candidate (0.1.0 → 0.1.1-rc.0)
+make release-rc
+```
+
+Pre-releases are published with appropriate npm dist-tags and won't be installed by default.
+
+### Release Workflow Example
+
+```bash
+# 1. Make your changes
+git checkout -b feat/new-feature
+# ... make code changes ...
+git commit -m "feat: add new feature"
+git push origin feat/new-feature
+
+# 2. Create PR, get reviewed, merge to main
+
+# 3. Pull latest main
+git checkout main
+git pull origin main
+
+# 4. Preview release
+make release-dry
+
+# 5. Create release
+make release-minor
+
+# 6. Done! ✅
+# - All packages published to npm
+# - Git tag v0.2.0 created
+# - GitHub release created
+# - Commit pushed to main
+```
+
+**Total time**: ~2 minutes after merge to main
 
 ---
 

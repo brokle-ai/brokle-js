@@ -1,24 +1,21 @@
-name: Release
+name: Release Verification
 
 on:
   push:
-    branches: [main]
-
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
 
 jobs:
-  release:
-    name: Release
+  verify:
+    name: Verify Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      id-token: write # Required for npm provenance
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for changesets
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -30,7 +27,6 @@ jobs:
         with:
           node-version: 20
           cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -38,78 +34,27 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Create Release PR or Publish
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          version: pnpm version-packages
-          publish: pnpm release
-          commit: 'chore: version packages'
-          title: 'chore: version packages'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Run tests
+        run: pnpm test
 
-      - name: Create Unified GitHub Release
-        if: steps.changesets.outputs.published == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const packages = JSON.parse('${{ steps.changesets.outputs.publishedPackages }}');
+      - name: Verify npm packages published
+        if: github.event_name == 'push'
+        run: |
+          VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
+          echo "Verifying npm packages for version $VERSION"
+          echo "Waiting 60s for npm registry propagation..."
+          sleep 60
 
-            if (packages.length === 0) {
-              console.log('No packages published, skipping release creation');
-              return;
-            }
+          echo "Checking brokle@$VERSION..."
+          npm view brokle@$VERSION
 
-            // All linked packages share the same version
-            const version = packages[0].version;
-            const tag = `v${version}`;
+          echo "Checking brokle-openai@$VERSION..."
+          npm view brokle-openai@$VERSION
 
-            console.log(`Creating unified release: ${tag}`);
-            console.log(`Packages: ${packages.map(p => p.name).join(', ')}`);
+          echo "Checking brokle-anthropic@$VERSION..."
+          npm view brokle-anthropic@$VERSION
 
-            // Create git tag
-            try {
-              await github.rest.git.createRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `refs/tags/${tag}`,
-                sha: context.sha
-              });
-              console.log(`✅ Created tag: ${tag}`);
-            } catch (error) {
-              console.log(`⚠️  Tag ${tag} may already exist: ${error.message}`);
-            }
+          echo "Checking brokle-langchain@$VERSION..."
+          npm view brokle-langchain@$VERSION
 
-            // Generate release body
-            const packageList = packages.map(p =>
-              `- **${p.name}** ([npm](https://www.npmjs.com/package/${p.name}/v/${p.version}))`
-            ).join('\n');
-
-            const releaseBody = `## Published Packages
-
-${packageList}
-
-## Changes
-
-See individual package CHANGELOGs for detailed changes:
-${packages.map(p => `- [${p.name}/CHANGELOG.md](./packages/${p.name.replace('brokle-', 'brokle-')}/CHANGELOG.md)`).join('\n')}
-
----
-
-**Full Changelog**: https://github.com/${context.repo.owner}/${context.repo.repo}/compare/v${version}...HEAD`;
-
-            // Create GitHub release
-            await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: tag,
-              name: `v${version}`,
-              body: releaseBody,
-              draft: false,
-              prerelease: version.includes('-alpha') || version.includes('-beta') || version.includes('-rc')
-            });
-
-            console.log(`✅ Created unified release: ${tag}`);
+          echo "✅ All packages verified on npm!"

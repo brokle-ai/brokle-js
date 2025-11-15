@@ -1,0 +1,32 @@
+{
+  "git": {
+    "requireCleanWorkingDir": true,
+    "requireUpstream": true,
+    "addUntrackedFiles": false,
+    "commit": true,
+    "commitMessage": "chore: release v${version}",
+    "tag": true,
+    "tagName": "v${version}",
+    "push": true,
+    "pushArgs": ["--follow-tags"]
+  },
+  "hooks": {
+    "before:init": ["pnpm install"],
+    "before:release": ["pnpm build"],
+    "after:release": [
+      "pnpm -r publish --access public --no-git-checks --tag latest"
+    ]
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "autoGenerate": true,
+    "web": true
+  },
+  "plugins": {
+    "@release-it/bumper": {
+      "out": ["packages/*/package.json"]
+    }
+  },
+  "npm": false
+}

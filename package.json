@@ -14,13 +14,16 @@
     "clean": "pnpm -r exec rm -rf dist node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
+    "release:alpha": "release-it --preRelease=alpha",
+    "release:beta": "release-it --preRelease=beta",
+    "release:rc": "release-it --preRelease=rc"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.7",
+    "@release-it/bumper": "^7.0.5",
     "prettier": "^3.1.0",
+    "release-it": "^19.0.4",
     "tsx": "^4.20.6"
   },
   "engines": {
