@@ -16,10 +16,7 @@
     "after:release": []
   },
   "github": {
-    "release": true,
-    "releaseName": "v${version}",
-    "autoGenerate": true,
-    "web": true
+    "release": false
   },
   "plugins": {
     "@release-it/bumper": {

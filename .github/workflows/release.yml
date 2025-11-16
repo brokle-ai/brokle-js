@@ -12,7 +12,7 @@ jobs:
     name: Verify & Publish Release
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # Required for creating GitHub Release
       id-token: write  # Required for npm provenance
     steps:
       - name: Checkout code
@@ -70,3 +70,38 @@ jobs:
           npm view brokle-langchain@$VERSION
 
           echo "✅ All packages verified on npm!"
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && success()
+        uses: softprops/action-gh-release@v1
+        with:
+          name: v${{ github.ref_name }}
+          body: |
+            ## Brokle JavaScript SDK ${{ github.ref_name }}
+
+            ### Published Packages
+
+            - **brokle** ([npm](https://www.npmjs.com/package/brokle))
+            - **brokle-openai** ([npm](https://www.npmjs.com/package/brokle-openai))
+            - **brokle-anthropic** ([npm](https://www.npmjs.com/package/brokle-anthropic))
+            - **brokle-langchain** ([npm](https://www.npmjs.com/package/brokle-langchain))
+
+            ### Installation
+
+            ```bash
+            npm install brokle@${VERSION}
+            npm install brokle-openai@${VERSION}
+            npm install brokle-anthropic@${VERSION}
+            npm install brokle-langchain@${VERSION}
+            ```
+
+            ### Changelog
+
+            See [CHANGELOG.md](./CHANGELOG.md) for detailed changes.
+
+            ---
+
+            **Full Changelog**: https://github.com/brokle-ai/brokle-js/compare/${{ github.ref_name }}...HEAD
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
+          generate_release_notes: true
