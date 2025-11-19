@@ -35,7 +35,8 @@ export function createBrokleExporter(config: BrokleConfig): OTLPTraceExporter {
     headers['X-Brokle-Release'] = config.release;
   }
 
-  const url = `${config.baseUrl}/v1/otlp/traces`;
+  // OTLP standard endpoint (OpenTelemetry specification)
+  const url = `${config.baseUrl}/v1/traces`;
 
   if (config.debug) {
     console.log('[Brokle] Creating OTLP exporter:', {

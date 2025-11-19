@@ -91,7 +91,7 @@ BrokleSpanProcessor (wrapper pattern)
   ↓
 OTLPTraceExporter (Protobuf + Gzip)
   ↓
-HTTP POST /v1/otlp/traces
+HTTP POST /v1/traces (OTLP standard)
   ↓
 Brokle Backend
 ```
@@ -110,7 +110,7 @@ Brokle Backend
 - Future: PII masking, attribute transformation
 
 **OTLP/HTTP Exporter**:
-- Endpoint: `{base_url}/v1/otlp/traces`
+- Endpoint: `{base_url}/v1/traces` (OpenTelemetry standard)
 - Headers: `X-API-Key`, `X-Brokle-Environment`, `X-Brokle-Release`
 - Compression: Gzip (automatic, 65% bandwidth reduction)
 - Format: Protobuf
