@@ -96,7 +96,7 @@ pnpm clean
 
 ## Release Process (release-it)
 
-This monorepo uses **release-it** for version management and releases, following the Langfuse pattern.
+This monorepo uses **release-it** for version management and releases, following industry-standard monorepo patterns.
 
 ### Prerequisites
 

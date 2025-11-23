@@ -55,7 +55,20 @@ export class Brokle {
     // Note: We don't set service.name to respect user's OTEL_SERVICE_NAME
     // SDK identification is done via instrumentation scope (getTracer name/version)
     // Project ID comes from backend auth, environment set as span attribute
-    const resource = Resource.default();
+    let resource = Resource.default();
+
+    // Add release and version as Resource attributes (trace-level metadata)
+    const resourceAttrs: Record<string, string> = {};
+    if (this.config.release) {
+      resourceAttrs[Attrs.BROKLE_RELEASE] = this.config.release;
+    }
+    if (this.config.version) {
+      resourceAttrs[Attrs.BROKLE_VERSION] = this.config.version;
+    }
+
+    if (Object.keys(resourceAttrs).length > 0) {
+      resource = resource.merge(new Resource(resourceAttrs));
+    }
 
     // Create sampler for trace-level sampling
     // Uses TraceIdRatioBasedSampler for deterministic sampling
@@ -105,27 +118,69 @@ export class Brokle {
    * @param name - Span name
    * @param fn - Async function to execute within span
    * @param attributes - Optional span attributes
-   * @param options - Optional configuration (version for A/B testing)
+   * @param options - Optional configuration
    * @returns Result of the function
    *
    * @example
    * ```typescript
-   * const result = await client.traced('my-operation', async (span) => {
-   *   span.setAttribute('custom', 'value');
+   * // Generic input/output
+   * const result = await client.traced('api-request', async (span) => {
    *   return processData();
-   * }, undefined, { version: '1.0' });
+   * }, undefined, {
+   *   version: '1.0',
+   *   input: { endpoint: '/weather', query: 'Bangalore' },
+   *   output: { status: 200, data: { temp: 25 } }
+   * });
+   *
+   * // LLM messages (auto-detected)
+   * await client.traced('llm-trace', async (span) => {
+   *   // ...
+   * }, undefined, {
+   *   input: [{ role: 'user', content: 'Hello' }],
+   *   output: [{ role: 'assistant', content: 'Hi!' }]
+   * });
    * ```
    */
   async traced<T>(
     name: string,
     fn: (span: Span) => Promise<T>,
     attributes?: Attributes,
-    options?: { version?: string }
+    options?: {
+      version?: string;
+      input?: unknown;
+      output?: unknown;
+    }
   ): Promise<T> {
-    const attrs = { ...(attributes ?? {}) };  // Fix: nullish coalescing for undefined
+    const attrs = { ...(attributes ?? {}) };
 
     if (options?.version) {
       attrs[Attrs.BROKLE_VERSION] = options.version;
+    }
+
+    // Handle input (auto-detect LLM messages vs generic data)
+    if (options?.input !== undefined) {
+      if (isChatMLFormat(options.input)) {
+        // LLM messages → use OTLP GenAI standard
+        attrs[Attrs.GEN_AI_INPUT_MESSAGES] = JSON.stringify(options.input);
+      } else {
+        // Generic data → use OpenInference pattern
+        const [inputStr, mimeType] = serializeWithMime(options.input);
+        attrs[Attrs.INPUT_VALUE] = inputStr;
+        attrs[Attrs.INPUT_MIME_TYPE] = mimeType;
+      }
+    }
+
+    // Handle output (auto-detect LLM messages vs generic data)
+    if (options?.output !== undefined) {
+      if (isChatMLFormat(options.output)) {
+        // LLM messages → use OTLP GenAI standard
+        attrs[Attrs.GEN_AI_OUTPUT_MESSAGES] = JSON.stringify(options.output);
+      } else {
+        // Generic data → use OpenInference pattern
+        const [outputStr, mimeType] = serializeWithMime(options.output);
+        attrs[Attrs.OUTPUT_VALUE] = outputStr;
+        attrs[Attrs.OUTPUT_MIME_TYPE] = mimeType;
+      }
     }
 
     return await this.tracer.startActiveSpan(name, { attributes: attrs }, async (span) => {
@@ -325,6 +380,49 @@ export async function resetClient(): Promise<void> {
     state.client = null;
     state.provider = null;
   }
+}
+
+/**
+ * Serialize value with MIME type detection
+ * Handles edge cases: null, objects, arrays, strings, etc.
+ */
+function serializeWithMime(value: unknown): [string, string] {
+  try {
+    if (value === null || value === undefined) {
+      return ['null', 'application/json'];
+    }
+
+    if (typeof value === 'string') {
+      return [value, 'text/plain'];
+    }
+
+    if (typeof value === 'object') {
+      // Objects and arrays → JSON
+      return [JSON.stringify(value), 'application/json'];
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return [String(value), 'text/plain'];
+    }
+
+    // Fallback
+    return [String(value), 'text/plain'];
+  } catch (error) {
+    // Serialization failed
+    const err = error as Error;
+    return [`<serialization failed: ${err.message}>`, 'text/plain'];
+  }
+}
+
+/**
+ * Check if data is in ChatML messages format
+ */
+function isChatMLFormat(data: unknown): boolean {
+  return (
+    Array.isArray(data) &&
+    data.length > 0 &&
+    data.every((msg) => typeof msg === 'object' && msg !== null && 'role' in msg)
+  );
 }
 
 /**

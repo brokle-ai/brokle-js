@@ -30,10 +30,8 @@ export function createBrokleExporter(config: BrokleConfig): OTLPTraceExporter {
     headers['X-Brokle-Environment'] = config.environment;
   }
 
-  // Add release header if provided
-  if (config.release) {
-    headers['X-Brokle-Release'] = config.release;
-  }
+  // Note: Release and version now sent as OTLP Resource attributes (not headers)
+  // See client.ts where they're merged into resource before provider creation
 
   // OTLP standard endpoint (OpenTelemetry specification)
   const url = `${config.baseUrl}/v1/traces`;

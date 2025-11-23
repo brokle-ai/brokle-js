@@ -16,8 +16,10 @@ export interface BrokleConfigInput {
   debug?: boolean;
   /** Enable/disable tracing (default: true) */
   tracingEnabled?: boolean;
-  /** Application release version */
+  /** Release identifier for deployment tracking (e.g., 'v2.1.24', git commit hash) */
   release?: string;
+  /** Trace-level version for A/B testing experiments (e.g., 'experiment-A', 'control') */
+  version?: string;
   /** Trace-level sampling rate (0.0 to 1.0) */
   sampleRate?: number;
   /** PII masking function */
@@ -44,6 +46,7 @@ export interface BrokleConfig {
   debug: boolean;
   tracingEnabled: boolean;
   release: string;
+  version: string;
   sampleRate: number;
   mask?: (data: unknown) => unknown;
   flushAt: number;
@@ -62,6 +65,7 @@ export const DEFAULT_CONFIG: Omit<BrokleConfig, 'apiKey'> = {
   debug: false,
   tracingEnabled: true,
   release: '',
+  version: '',
   sampleRate: 1.0,
   flushAt: 100,
   flushInterval: 10, // seconds

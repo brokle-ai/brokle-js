@@ -76,6 +76,7 @@ export function loadFromEnv(): BrokleConfigInput {
     debug: process.env.BROKLE_DEBUG === 'true',
     tracingEnabled: process.env.BROKLE_TRACING_ENABLED !== 'false',
     release: process.env.BROKLE_RELEASE,
+    version: process.env.BROKLE_VERSION,
     sampleRate: process.env.BROKLE_SAMPLE_RATE
       ? parseFloat(process.env.BROKLE_SAMPLE_RATE)
       : undefined,
@@ -112,6 +113,7 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
     debug: input.debug ?? DEFAULT_CONFIG.debug,
     tracingEnabled: input.tracingEnabled ?? DEFAULT_CONFIG.tracingEnabled,
     release: input.release || DEFAULT_CONFIG.release,
+    version: input.version || DEFAULT_CONFIG.version,
     sampleRate: input.sampleRate ?? DEFAULT_CONFIG.sampleRate,
     flushAt: input.flushAt ?? DEFAULT_CONFIG.flushAt,
     flushInterval: input.flushInterval ?? DEFAULT_CONFIG.flushInterval,

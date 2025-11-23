@@ -31,9 +31,34 @@ export const BrokleOtelSpanAttributes = {
   GEN_AI_OUTPUT_MESSAGES: 'gen_ai.output.messages',
   GEN_AI_SYSTEM_INSTRUCTIONS: 'gen_ai.system_instructions',
 
+  // ========== OpenInference Generic Input/Output (Industry Standard) ==========
+  // https://github.com/Arize-ai/openinference/blob/main/spec/semantic_conventions.md
+  INPUT_VALUE: 'input.value',
+  INPUT_MIME_TYPE: 'input.mime_type',
+  OUTPUT_VALUE: 'output.value',
+  OUTPUT_MIME_TYPE: 'output.mime_type',
+
   // ========== GenAI Usage ==========
   GEN_AI_USAGE_INPUT_TOKENS: 'gen_ai.usage.input_tokens',
   GEN_AI_USAGE_OUTPUT_TOKENS: 'gen_ai.usage.output_tokens',
+
+  // ========== GenAI Extended Usage (Cache, Audio, Multi-modal) ==========
+  // Cache tokens (Anthropic/OpenAI prompt caching)
+  GEN_AI_USAGE_INPUT_TOKENS_CACHE_READ: 'gen_ai.usage.input_tokens.cache_read',
+  GEN_AI_USAGE_INPUT_TOKENS_CACHE_CREATION: 'gen_ai.usage.input_tokens.cache_creation',
+
+  // Audio tokens (OpenAI Whisper, TTS, Realtime API)
+  GEN_AI_USAGE_INPUT_AUDIO_TOKENS: 'gen_ai.usage.input_audio_tokens',
+  GEN_AI_USAGE_OUTPUT_AUDIO_TOKENS: 'gen_ai.usage.output_audio_tokens',
+
+  // Reasoning tokens (OpenAI o1 models - internal chain-of-thought)
+  GEN_AI_USAGE_REASONING_TOKENS: 'gen_ai.usage.reasoning_tokens',
+
+  // Image tokens (GPT-4V, Claude 3.5 Sonnet Vision)
+  GEN_AI_USAGE_IMAGE_TOKENS: 'gen_ai.usage.image_tokens',
+
+  // Video tokens (Future multi-modal support)
+  GEN_AI_USAGE_VIDEO_TOKENS: 'gen_ai.usage.video_tokens',
 
   // ========== OpenAI Specific ==========
   OPENAI_REQUEST_N: 'openai.request.n',
@@ -46,16 +71,19 @@ export const BrokleOtelSpanAttributes = {
   // ========== Brokle Custom ==========
   BROKLE_SPAN_TYPE: 'brokle.span.type',
   BROKLE_SPAN_LEVEL: 'brokle.span.level',
+  BROKLE_SPAN_VERSION: 'brokle.span.version',  // Span-level version for A/B testing
   BROKLE_USAGE_TOTAL_TOKENS: 'brokle.usage.total_tokens',
   BROKLE_USAGE_LATENCY_MS: 'brokle.usage.latency_ms',
   BROKLE_STREAMING: 'brokle.streaming',
   BROKLE_PROJECT_ID: 'brokle.project_id',
   BROKLE_ENVIRONMENT: 'brokle.environment',
-  BROKLE_VERSION: 'brokle.version',
-  BROKLE_RELEASE: 'brokle.release',
+  BROKLE_VERSION: 'brokle.version',  // Trace-level version
+  BROKLE_RELEASE: 'brokle.release',  // Release identifier
 
   // Note: brokle.cost.* attributes are set by BACKEND only (calculated from usage + model pricing)
   // SDKs should NOT set cost attributes - backend calculates costs server-side
+  // Usage tracking is flexible - send any combination of token types (standard, cache, audio, reasoning, etc.)
+  // Backend supports 10+ token types via flexible usage_details Maps - no schema changes needed for new types
 
   // ========== Brokle Prompt Management ==========
   BROKLE_PROMPT_ID: 'brokle.prompt.id',
@@ -82,6 +110,8 @@ export enum SpanType {
   SPAN = 'span',
   EVENT = 'event',
   TOOL = 'tool',
+  AGENT = 'agent',        // AI agent operation
+  CHAIN = 'chain',        // Chain of operations
   RETRIEVAL = 'retrieval',
   EMBEDDING = 'embedding',
 }
