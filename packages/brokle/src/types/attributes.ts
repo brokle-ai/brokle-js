@@ -90,9 +90,49 @@ export const BrokleOtelSpanAttributes = {
   BROKLE_PROMPT_NAME: 'brokle.prompt.name',
   BROKLE_PROMPT_VERSION: 'brokle.prompt.version',
 
+  // ========== Brokle Score Infrastructure ==========
+  BROKLE_SCORE_NAME: 'brokle.score.name',
+  BROKLE_SCORE_VALUE: 'brokle.score.value',
+  BROKLE_SCORE_DATA_TYPE: 'brokle.score.data_type',
+  BROKLE_SCORE_COMMENT: 'brokle.score.comment',
+
+  // ========== Framework Identification ==========
+  GEN_AI_FRAMEWORK_NAME: 'gen_ai.framework.name',
+  GEN_AI_FRAMEWORK_VERSION: 'gen_ai.framework.version',
+  GEN_AI_COMPONENT_TYPE: 'gen_ai.component.type',
+
+  // ========== Agent Attributes ==========
+  GEN_AI_AGENT_NAME: 'gen_ai.agent.name',
+  GEN_AI_AGENT_STRATEGY: 'gen_ai.agent.strategy',
+  GEN_AI_AGENT_ITERATION_COUNT: 'gen_ai.agent.iteration_count',
+  GEN_AI_AGENT_MAX_ITERATIONS: 'gen_ai.agent.max_iterations',
+
+  // ========== Tool Attributes ==========
+  GEN_AI_TOOL_NAME: 'gen_ai.tool.name',
+  GEN_AI_TOOL_DESCRIPTION: 'gen_ai.tool.description',
+  GEN_AI_TOOL_PARAMETERS: 'gen_ai.tool.parameters',
+
+  // ========== Retrieval Attributes ==========
+  GEN_AI_RETRIEVER_TYPE: 'gen_ai.retriever.type',
+  GEN_AI_RETRIEVAL_TOP_K: 'gen_ai.retrieval.top_k',
+  GEN_AI_RETRIEVAL_SCORE: 'gen_ai.retrieval.score',
+  GEN_AI_RETRIEVAL_SOURCE: 'gen_ai.retrieval.source',
+
+  // ========== Memory Attributes ==========
+  GEN_AI_MEMORY_TYPE: 'gen_ai.memory.type',
+
+  // ========== Execution Attributes ==========
+  GEN_AI_EXECUTION_PARALLEL_COUNT: 'gen_ai.execution.parallel_count',
+  GEN_AI_EXECUTION_SEQUENTIAL_ORDER: 'gen_ai.execution.sequential_order',
+
+  // ========== Streaming Response Attributes ==========
+  GEN_AI_RESPONSE_TIME_TO_FIRST_TOKEN: 'gen_ai.response.time_to_first_token',
+  GEN_AI_RESPONSE_INTER_TOKEN_LATENCY: 'gen_ai.response.inter_token_latency',
+  GEN_AI_RESPONSE_DURATION: 'gen_ai.response.duration',
+
   // ========== Filterable Metadata ==========
-  USER_ID: 'user.id',  // OTEL standard
-  SESSION_ID: 'session.id',  // OTEL standard
+  USER_ID: 'user.id', // OTEL standard
+  SESSION_ID: 'session.id', // OTEL standard
   TAGS: 'tags',
   METADATA: 'metadata',
 } as const;

@@ -14,13 +14,13 @@ This monorepo contains multiple packages for different use cases:
   - ✅ Decorators and async helpers
   - ✅ ESM + CJS dual build
 
-### SDK Wrappers (Coming Soon)
-- **brokle-openai** - OpenAI SDK wrapper with automatic tracing
-- **brokle-anthropic** - Anthropic SDK wrapper
+### SDK Wrappers
+- **[brokle-openai](./packages/brokle-openai)** - OpenAI SDK wrapper with automatic tracing
+- **[brokle-anthropic](./packages/brokle-anthropic)** - Anthropic SDK wrapper
 
-### Integrations (Coming Soon)
-- **brokle-langchain** - LangChain.js callbacks
-- **brokle-vercel** - Vercel AI SDK middleware
+### Integrations
+- **[brokle-langchain](./packages/brokle-langchain)** - LangChain.js callbacks
+- **brokle-vercel** - Vercel AI SDK middleware (Coming Soon)
 
 ## 🚀 Quick Start
 

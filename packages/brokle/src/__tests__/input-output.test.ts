@@ -14,7 +14,7 @@ describe('Input/Output Functionality', () => {
 
   beforeEach(() => {
     client = new Brokle({
-      apiKey: 'bk_test_' + 'x'.repeat(36),
+      apiKey: 'bk_' + 'x'.repeat(40), // bk_ + 40 alphanumeric chars = 43 total
       baseUrl: 'http://localhost:8080',
       environment: 'test',
       tracingEnabled: true,

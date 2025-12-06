@@ -231,28 +231,28 @@ Create example files in `examples/` directory:
 
 ## Architecture Vision
 
-### Core Features (Planned)
+### Core Features
 ```typescript
-// OpenAI compatibility
-import { OpenAI } from '@brokle/sdk';
-const client = new OpenAI({ apiKey: 'your-key' });
+import { getClient, observe, Attrs } from 'brokle';
 
-// Native SDK
-import { Brokle } from '@brokle/sdk';
-const client = new Brokle({
-  apiKey: 'your-key',
-  routing: 'cost-optimized',
-  caching: true
+// Initialize client
+const client = getClient({
+  apiKey: process.env.BROKLE_API_KEY,
+  environment: 'production',
+  sampleRate: 1.0,  // 100% sampling
 });
 
-// Advanced features
-const response = await client.chat.completions.create({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello!' }],
-  // Brokle-specific options
-  routingStrategy: 'quality-first',
-  cachingEnabled: true,
-  evaluationMetrics: ['relevance', 'accuracy']
+// Traced operations with OTEL attributes
+await client.traced('my-operation', async (span) => {
+  span.setAttribute(Attrs.USER_ID, 'user-123');
+  return await doWork();
+});
+
+// LLM generation with GenAI attributes
+await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+  const response = await openai.chat.completions.create({...});
+  span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, response.usage.prompt_tokens);
+  return response;
 });
 ```
 

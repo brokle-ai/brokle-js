@@ -2,6 +2,8 @@
  * Configuration types for Brokle SDK
  */
 
+import type { TransportType } from '../transport/types';
+
 /**
  * Input configuration from user (partial values allowed)
  */
@@ -16,6 +18,10 @@ export interface BrokleConfigInput {
   debug?: boolean;
   /** Enable/disable tracing (default: true) */
   tracingEnabled?: boolean;
+  /** Enable/disable metrics (default: true) */
+  metricsEnabled?: boolean;
+  /** Enable/disable logs export (default: false, opt-in) */
+  logsEnabled?: boolean;
   /** Release identifier for deployment tracking (e.g., 'v2.1.24', git commit hash) */
   release?: string;
   /** Trace-level version for A/B testing experiments (e.g., 'experiment-A', 'control') */
@@ -34,6 +40,12 @@ export interface BrokleConfigInput {
   maxQueueSize?: number;
   /** Request timeout in milliseconds */
   timeout?: number;
+  /** Transport protocol for OTLP export (default: 'http') */
+  transport?: TransportType | 'http' | 'grpc';
+  /** gRPC endpoint (only used when transport is 'grpc') */
+  grpcEndpoint?: string;
+  /** Metrics export interval in milliseconds (default: 60000) */
+  metricsInterval?: number;
 }
 
 /**
@@ -45,6 +57,8 @@ export interface BrokleConfig {
   environment: string;
   debug: boolean;
   tracingEnabled: boolean;
+  metricsEnabled: boolean;
+  logsEnabled: boolean;
   release: string;
   version: string;
   sampleRate: number;
@@ -54,6 +68,9 @@ export interface BrokleConfig {
   flushSync: boolean;
   maxQueueSize: number;
   timeout: number;
+  transport: TransportType | 'http' | 'grpc';
+  grpcEndpoint?: string;
+  metricsInterval: number;
 }
 
 /**
@@ -64,6 +81,8 @@ export const DEFAULT_CONFIG: Omit<BrokleConfig, 'apiKey'> = {
   environment: 'default',
   debug: false,
   tracingEnabled: true,
+  metricsEnabled: true,
+  logsEnabled: false, // Opt-in, matching Python SDK
   release: '',
   version: '',
   sampleRate: 1.0,
@@ -72,4 +91,6 @@ export const DEFAULT_CONFIG: Omit<BrokleConfig, 'apiKey'> = {
   flushSync: false,
   maxQueueSize: 10000,
   timeout: 30000, // 30 seconds
+  transport: 'http',
+  metricsInterval: 60000, // 60 seconds
 };

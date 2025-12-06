@@ -37,3 +37,34 @@ export { createBrokleExporter } from './exporter';
 
 // Processor (for advanced use cases)
 export { BrokleSpanProcessor } from './processor';
+
+// Metrics (for GenAI metrics recording)
+export {
+  GenAIMetrics,
+  createMeterProvider,
+  createMeterProviderAsync,
+  createMetricsExporter,
+} from './metrics';
+
+export {
+  TOKEN_BOUNDARIES,
+  DURATION_BOUNDARIES,
+  TTFT_BOUNDARIES,
+  INTER_TOKEN_BOUNDARIES,
+  MetricNames,
+} from './metrics/constants';
+
+// Logs (for log export)
+export { createLoggerProvider, createLoggerProviderAsync, createLogsExporter } from './logs';
+
+// Transport (for custom transport configuration)
+export { TransportType, CompressionType } from './transport';
+
+export {
+  createTraceExporter,
+  createTraceExporterAsync,
+  createMetricExporter,
+  createMetricExporterAsync,
+  createLogExporter,
+  createLogExporterAsync,
+} from './transport';

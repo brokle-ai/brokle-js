@@ -2,26 +2,36 @@
  * Brokle Client - Main SDK entry point
  *
  * OpenTelemetry-native client with trace-level sampling and Symbol-based singleton.
+ * Supports traces, metrics, and logs export via OTLP (HTTP or gRPC).
  */
 
-import { type Span, type Tracer, type Attributes, SpanStatusCode } from '@opentelemetry/api';
+import { type Span, type Tracer, type Attributes, SpanStatusCode, metrics } from '@opentelemetry/api';
+import { logs } from '@opentelemetry/api-logs';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { TraceIdRatioBasedSampler, AlwaysOnSampler } from '@opentelemetry/sdk-trace-base';
 import { Resource } from '@opentelemetry/resources';
+import type { MeterProvider } from '@opentelemetry/sdk-metrics';
+import type { LoggerProvider } from '@opentelemetry/sdk-logs';
 import type { BrokleConfig, BrokleConfigInput } from './types/config';
 import { validateConfig, loadFromEnv } from './config';
-import { createBrokleExporter } from './exporter';
+import { createTraceExporter, createTraceExporterAsync, TransportType } from './transport';
+import { createMeterProviderAsync } from './metrics';
+import { createLoggerProviderAsync } from './logs';
 import { BrokleSpanProcessor } from './processor';
 import { Attrs } from './types/attributes';
+import { createMeterProvider, GenAIMetrics } from './metrics';
+import { createLoggerProvider } from './logs';
 
 // SDK version
-const VERSION = '0.1.0';
+const VERSION = '0.1.4';
 
 /**
  * Main Brokle client class
  *
  * Features:
  * - OTEL-native TracerProvider integration
+ * - OTEL-native MeterProvider for metrics
+ * - OTEL-native LoggerProvider for logs (opt-in)
  * - Trace-level sampling (TraceIdRatioBasedSampler)
  * - Symbol-based singleton
  * - No process exit handlers (explicit shutdown)
@@ -31,6 +41,9 @@ export class Brokle {
   private config: BrokleConfig;
   private provider: NodeTracerProvider;
   private tracer: Tracer;
+  private meterProvider: MeterProvider | null = null;
+  private loggerProvider: LoggerProvider | null = null;
+  private genAIMetrics: GenAIMetrics | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -38,7 +51,6 @@ export class Brokle {
    * @param configInput - Configuration object or load from environment
    */
   constructor(configInput?: BrokleConfigInput) {
-    // Load and validate configuration
     const input = configInput || loadFromEnv();
     this.config = validateConfig(input);
 
@@ -48,16 +60,15 @@ export class Brokle {
         environment: this.config.environment,
         sampleRate: this.config.sampleRate,
         flushSync: this.config.flushSync,
+        metricsEnabled: this.config.metricsEnabled,
+        logsEnabled: this.config.logsEnabled,
+        transport: this.config.transport,
       });
     }
 
-    // Create Resource (respects OTEL environment variables)
-    // Note: We don't set service.name to respect user's OTEL_SERVICE_NAME
-    // SDK identification is done via instrumentation scope (getTracer name/version)
-    // Project ID comes from backend auth, environment set as span attribute
+    // Resource: We don't set service.name to respect user's OTEL_SERVICE_NAME.
+    // SDK identification via instrumentation scope, project ID from backend auth.
     let resource = Resource.default();
-
-    // Add release and version as Resource attributes (trace-level metadata)
     const resourceAttrs: Record<string, string> = {};
     if (this.config.release) {
       resourceAttrs[Attrs.BROKLE_RELEASE] = this.config.release;
@@ -70,9 +81,7 @@ export class Brokle {
       resource = resource.merge(new Resource(resourceAttrs));
     }
 
-    // Create sampler for trace-level sampling
-    // Uses TraceIdRatioBasedSampler for deterministic sampling
-    // This ensures entire traces are sampled together (no partial traces)
+    // TraceIdRatioBasedSampler ensures entire traces are sampled together (no partial traces)
     const sampler =
       this.config.sampleRate < 1.0
         ? new TraceIdRatioBasedSampler(this.config.sampleRate)
@@ -84,28 +93,50 @@ export class Brokle {
       );
     }
 
-    // Create TracerProvider with sampler
-    this.provider = new NodeTracerProvider({
-      resource,
-      sampler,
-    });
+    if (this.config.transport === TransportType.GRPC) {
+      throw new Error(
+        'gRPC transport requires async initialization. ' +
+          'Use Brokle.createAsync(config) instead of new Brokle(config).'
+      );
+    }
 
-    // Create OTLP exporter with Gzip compression
-    const exporter = createBrokleExporter(this.config);
-
-    // Create processor (wrapper pattern)
+    this.provider = new NodeTracerProvider({ resource, sampler });
+    const exporter = createTraceExporter(this.config);
     const processor = new BrokleSpanProcessor(exporter, this.config);
-
-    // Add processor to provider
     this.provider.addSpanProcessor(processor);
 
-    // Register the provider globally (optional, for OTEL ecosystem compatibility)
     if (this.config.tracingEnabled) {
       this.provider.register();
     }
 
-    // Get tracer instance
     this.tracer = this.provider.getTracer('brokle', VERSION);
+
+    if (this.config.metricsEnabled) {
+      this.meterProvider = createMeterProvider({
+        config: this.config,
+        resource,
+        exportInterval: this.config.metricsInterval,
+      });
+      metrics.setGlobalMeterProvider(this.meterProvider);
+      this.genAIMetrics = new GenAIMetrics('brokle', VERSION);
+
+      if (this.config.debug) {
+        console.log('[Brokle] MeterProvider initialized');
+      }
+    }
+
+    if (this.config.logsEnabled) {
+      this.loggerProvider = createLoggerProvider({
+        config: this.config,
+        resource,
+        flushSync: this.config.flushSync,
+      });
+      logs.setGlobalLoggerProvider(this.loggerProvider);
+
+      if (this.config.debug) {
+        console.log('[Brokle] LoggerProvider initialized');
+      }
+    }
 
     if (this.config.debug) {
       console.log('[Brokle] SDK initialized successfully');
@@ -157,26 +188,21 @@ export class Brokle {
       attrs[Attrs.BROKLE_VERSION] = options.version;
     }
 
-    // Handle input (auto-detect LLM messages vs generic data)
+    // Auto-detect LLM messages (ChatML) vs generic data
     if (options?.input !== undefined) {
       if (isChatMLFormat(options.input)) {
-        // LLM messages → use OTLP GenAI standard
         attrs[Attrs.GEN_AI_INPUT_MESSAGES] = JSON.stringify(options.input);
       } else {
-        // Generic data → use OpenInference pattern
         const [inputStr, mimeType] = serializeWithMime(options.input);
         attrs[Attrs.INPUT_VALUE] = inputStr;
         attrs[Attrs.INPUT_MIME_TYPE] = mimeType;
       }
     }
 
-    // Handle output (auto-detect LLM messages vs generic data)
     if (options?.output !== undefined) {
       if (isChatMLFormat(options.output)) {
-        // LLM messages → use OTLP GenAI standard
         attrs[Attrs.GEN_AI_OUTPUT_MESSAGES] = JSON.stringify(options.output);
       } else {
-        // Generic data → use OpenInference pattern
         const [outputStr, mimeType] = serializeWithMime(options.output);
         attrs[Attrs.OUTPUT_VALUE] = outputStr;
         attrs[Attrs.OUTPUT_MIME_TYPE] = mimeType;
@@ -235,8 +261,6 @@ export class Brokle {
       [Attrs.GEN_AI_OPERATION_NAME]: name,
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
     };
-
-    // Forward options (including version) to traced()
     return await this.traced(spanName, fn, attrs, options);
   }
 
@@ -260,7 +284,34 @@ export class Brokle {
   }
 
   /**
-   * Force flush all pending spans to backend
+   * Get the MeterProvider for advanced use cases
+   *
+   * @returns MeterProvider instance or null if metrics disabled
+   */
+  getMeterProvider(): MeterProvider | null {
+    return this.meterProvider;
+  }
+
+  /**
+   * Get the LoggerProvider for advanced use cases
+   *
+   * @returns LoggerProvider instance or null if logs disabled
+   */
+  getLoggerProvider(): LoggerProvider | null {
+    return this.loggerProvider;
+  }
+
+  /**
+   * Get the GenAI metrics instance for recording custom metrics
+   *
+   * @returns GenAIMetrics instance or null if metrics disabled
+   */
+  getMetrics(): GenAIMetrics | null {
+    return this.genAIMetrics;
+  }
+
+  /**
+   * Force flush all pending telemetry to backend
    * Use before process exit in serverless/CLI applications
    *
    * @example
@@ -271,13 +322,24 @@ export class Brokle {
    */
   async flush(): Promise<void> {
     if (this.config.debug) {
-      console.log('[Brokle] Flushing pending spans...');
+      console.log('[Brokle] Flushing pending telemetry...');
     }
-    await this.provider.forceFlush();
+
+    const flushPromises: Promise<void>[] = [this.provider.forceFlush()];
+
+    if (this.meterProvider) {
+      flushPromises.push(this.meterProvider.forceFlush());
+    }
+
+    if (this.loggerProvider) {
+      flushPromises.push(this.loggerProvider.forceFlush());
+    }
+
+    await Promise.all(flushPromises);
   }
 
   /**
-   * Shutdown the TracerProvider and clean up resources
+   * Shutdown all providers and clean up resources
    * Use for graceful shutdown in long-running applications
    *
    * @example
@@ -292,30 +354,147 @@ export class Brokle {
     if (this.config.debug) {
       console.log('[Brokle] Shutting down SDK...');
     }
-    await this.provider.shutdown();
+
+    const shutdownPromises: Promise<void>[] = [this.provider.shutdown()];
+
+    if (this.meterProvider) {
+      shutdownPromises.push(this.meterProvider.shutdown());
+    }
+
+    if (this.loggerProvider) {
+      shutdownPromises.push(this.loggerProvider.shutdown());
+    }
+
+    await Promise.all(shutdownPromises);
+  }
+
+  /**
+   * Create a Brokle client asynchronously (required for gRPC transport)
+   *
+   * Use this factory method when using gRPC transport, as gRPC exporters
+   * require async initialization for lazy-loading dependencies.
+   *
+   * @param configInput - Configuration object or load from environment
+   * @returns Promise resolving to Brokle client instance
+   *
+   * @example
+   * ```typescript
+   * // gRPC transport requires async initialization
+   * const client = await Brokle.createAsync({
+   *   apiKey: 'bk_...',
+   *   transport: 'grpc',
+   *   grpcEndpoint: 'localhost:4317',
+   * });
+   *
+   * // HTTP transport also works (delegates to sync constructor)
+   * const httpClient = await Brokle.createAsync({
+   *   apiKey: 'bk_...',
+   *   // transport defaults to 'http'
+   * });
+   * ```
+   */
+  static async createAsync(configInput?: BrokleConfigInput): Promise<Brokle> {
+    const input = configInput || loadFromEnv();
+    const config = validateConfig(input);
+
+    if (config.transport !== TransportType.GRPC) {
+      return new Brokle(configInput);
+    }
+
+    if (config.debug) {
+      console.log('[Brokle] Initializing SDK with gRPC transport...');
+    }
+
+    // gRPC requires async exporters, create providers manually
+    let resource = Resource.default();
+    const resourceAttrs: Record<string, string> = {};
+    if (config.release) {
+      resourceAttrs[Attrs.BROKLE_RELEASE] = config.release;
+    }
+    if (config.version) {
+      resourceAttrs[Attrs.BROKLE_VERSION] = config.version;
+    }
+    if (Object.keys(resourceAttrs).length > 0) {
+      resource = resource.merge(new Resource(resourceAttrs));
+    }
+
+    const sampler =
+      config.sampleRate < 1.0
+        ? new TraceIdRatioBasedSampler(config.sampleRate)
+        : new AlwaysOnSampler();
+
+    const provider = new NodeTracerProvider({ resource, sampler });
+    const exporter = await createTraceExporterAsync(config);
+    const processor = new BrokleSpanProcessor(exporter, config);
+    provider.addSpanProcessor(processor);
+
+    if (config.tracingEnabled) {
+      provider.register();
+    }
+
+    const tracer = provider.getTracer('brokle', VERSION);
+
+    let meterProvider: MeterProvider | null = null;
+    let genAIMetrics: GenAIMetrics | null = null;
+    if (config.metricsEnabled) {
+      meterProvider = await createMeterProviderAsync({
+        config,
+        resource,
+        exportInterval: config.metricsInterval,
+      });
+      metrics.setGlobalMeterProvider(meterProvider);
+      genAIMetrics = new GenAIMetrics('brokle', VERSION);
+
+      if (config.debug) {
+        console.log('[Brokle] gRPC MeterProvider initialized');
+      }
+    }
+
+    let loggerProvider: LoggerProvider | null = null;
+    if (config.logsEnabled) {
+      loggerProvider = await createLoggerProviderAsync({
+        config,
+        resource,
+        flushSync: config.flushSync,
+      });
+      logs.setGlobalLoggerProvider(loggerProvider);
+
+      if (config.debug) {
+        console.log('[Brokle] gRPC LoggerProvider initialized');
+      }
+    }
+
+    if (config.debug) {
+      console.log('[Brokle] SDK initialized successfully with gRPC transport');
+    }
+
+    // Bypass constructor using Object.create to set properties directly
+    const instance = Object.create(Brokle.prototype) as Brokle;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (instance as any).config = config;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (instance as any).provider = provider;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (instance as any).tracer = tracer;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (instance as any).meterProvider = meterProvider;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (instance as any).loggerProvider = loggerProvider;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (instance as any).genAIMetrics = genAIMetrics;
+
+    return instance;
   }
 }
 
-// ========== Singleton Pattern (Symbol-based pattern) ==========
-
-/**
- * Symbol for global state storage
- * Ensures uniqueness across the entire process
- */
+// Singleton Pattern using Symbol.for() for cross-realm uniqueness
 const BROKLE_GLOBAL_SYMBOL = Symbol.for('brokle');
 
-/**
- * Global state structure
- */
 interface BrokleGlobalState {
   provider: NodeTracerProvider | null;
   client: Brokle | null;
 }
 
-/**
- * Get or create global state
- * Uses Symbol.for() for cross-realm uniqueness
- */
 function getGlobalState(): BrokleGlobalState {
   const g = globalThis as typeof globalThis & {
     [BROKLE_GLOBAL_SYMBOL]?: BrokleGlobalState;

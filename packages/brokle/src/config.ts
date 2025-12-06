@@ -61,6 +61,16 @@ function validateBaseUrl(baseUrl: string): void {
 }
 
 /**
+ * Safely parse integer from environment variable.
+ * Returns undefined for empty/invalid values to fall back to defaults.
+ */
+function parseIntEnv(value: string | undefined): number | undefined {
+  if (value === undefined || value === '') return undefined;
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
  * Loads configuration from environment variables
  */
 export function loadFromEnv(): BrokleConfigInput {
@@ -75,24 +85,21 @@ export function loadFromEnv(): BrokleConfigInput {
     environment: process.env.BROKLE_ENVIRONMENT,
     debug: process.env.BROKLE_DEBUG === 'true',
     tracingEnabled: process.env.BROKLE_TRACING_ENABLED !== 'false',
+    metricsEnabled: process.env.BROKLE_METRICS_ENABLED !== 'false',
+    logsEnabled: process.env.BROKLE_LOGS_ENABLED === 'true', // Opt-in
     release: process.env.BROKLE_RELEASE,
     version: process.env.BROKLE_VERSION,
     sampleRate: process.env.BROKLE_SAMPLE_RATE
       ? parseFloat(process.env.BROKLE_SAMPLE_RATE)
       : undefined,
-    flushAt: process.env.BROKLE_FLUSH_AT
-      ? parseInt(process.env.BROKLE_FLUSH_AT, 10)
-      : undefined,
-    flushInterval: process.env.BROKLE_FLUSH_INTERVAL
-      ? parseInt(process.env.BROKLE_FLUSH_INTERVAL, 10)
-      : undefined,
+    flushAt: parseIntEnv(process.env.BROKLE_FLUSH_AT),
+    flushInterval: parseIntEnv(process.env.BROKLE_FLUSH_INTERVAL),
     flushSync: process.env.BROKLE_FLUSH_SYNC === 'true',
-    maxQueueSize: process.env.BROKLE_MAX_QUEUE_SIZE
-      ? parseInt(process.env.BROKLE_MAX_QUEUE_SIZE, 10)
-      : undefined,
-    timeout: process.env.BROKLE_TIMEOUT
-      ? parseInt(process.env.BROKLE_TIMEOUT, 10)
-      : undefined,
+    maxQueueSize: parseIntEnv(process.env.BROKLE_MAX_QUEUE_SIZE),
+    timeout: parseIntEnv(process.env.BROKLE_TIMEOUT),
+    transport: process.env.BROKLE_TRANSPORT as 'http' | 'grpc' | undefined,
+    grpcEndpoint: process.env.BROKLE_GRPC_ENDPOINT,
+    metricsInterval: parseIntEnv(process.env.BROKLE_METRICS_INTERVAL),
   };
 }
 
@@ -100,10 +107,8 @@ export function loadFromEnv(): BrokleConfigInput {
  * Validates and normalizes configuration
  */
 export function validateConfig(input: BrokleConfigInput): BrokleConfig {
-  // Validate API key
   validateApiKey(input.apiKey);
 
-  // Merge with defaults
   const config: BrokleConfig = {
     ...DEFAULT_CONFIG,
     ...input,
@@ -112,6 +117,8 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
     environment: input.environment || DEFAULT_CONFIG.environment,
     debug: input.debug ?? DEFAULT_CONFIG.debug,
     tracingEnabled: input.tracingEnabled ?? DEFAULT_CONFIG.tracingEnabled,
+    metricsEnabled: input.metricsEnabled ?? DEFAULT_CONFIG.metricsEnabled,
+    logsEnabled: input.logsEnabled ?? DEFAULT_CONFIG.logsEnabled,
     release: input.release || DEFAULT_CONFIG.release,
     version: input.version || DEFAULT_CONFIG.version,
     sampleRate: input.sampleRate ?? DEFAULT_CONFIG.sampleRate,
@@ -120,15 +127,14 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
     flushSync: input.flushSync ?? DEFAULT_CONFIG.flushSync,
     maxQueueSize: input.maxQueueSize ?? DEFAULT_CONFIG.maxQueueSize,
     timeout: input.timeout ?? DEFAULT_CONFIG.timeout,
+    transport: input.transport ?? DEFAULT_CONFIG.transport,
+    grpcEndpoint: input.grpcEndpoint,
+    metricsInterval: input.metricsInterval ?? DEFAULT_CONFIG.metricsInterval,
   };
 
-  // Validate base URL
   validateBaseUrl(config.baseUrl);
-
-  // Validate sample rate
   validateSampleRate(config.sampleRate);
 
-  // Validate flush configuration
   if (config.flushAt <= 0) {
     throw new Error('flushAt must be greater than 0');
   }
@@ -143,6 +149,14 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
 
   if (config.timeout <= 0) {
     throw new Error('timeout must be greater than 0');
+  }
+
+  if (config.metricsInterval <= 0) {
+    throw new Error('metricsInterval must be greater than 0');
+  }
+
+  if (config.transport && !['http', 'grpc'].includes(config.transport)) {
+    throw new Error(`Invalid transport: ${config.transport}. Must be 'http' or 'grpc'`);
   }
 
   return config;
