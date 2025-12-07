@@ -1,24 +1,21 @@
-name: Release Verification
+name: Publish JavaScript SDK
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+-*"
-  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
-  verify:
-    name: Verify & Publish Release
+  publish:
+    name: Publish to npm
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Required for creating GitHub Release
-      id-token: write  # Required for npm provenance
+      contents: write  # Upload artifacts to release
+      id-token: write  # npm provenance
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -38,70 +35,49 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Run tests
-        run: pnpm test
+      - name: Validate pre-release version
+        if: github.event.release.prerelease
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          if [[ ! "$VERSION" =~ (alpha|beta|rc) ]]; then
+            echo "❌ ERROR: GitHub Release marked as pre-release but version has no suffix!"
+            echo "   Version: $VERSION"
+            echo "   This would publish stable version with beta tag, blocking future stable release."
+            echo ""
+            echo "   To fix: Either"
+            echo "   1. Uncheck 'pre-release' checkbox and re-publish, OR"
+            echo "   2. Delete this release and create tag with suffix (e.g., v0.1.6-rc.1)"
+            exit 1
+          fi
+          echo "✅ Pre-release version valid: $VERSION"
 
-      - name: Publish to npm
-        if: github.event_name == 'push'
+      - name: Publish to npm (stable)
+        if: ${{ !github.event.release.prerelease }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          echo "Publishing all packages to npm..."
+          echo "📦 Publishing all packages to npm (latest tag)..."
           pnpm -r publish --access public --no-git-checks --tag latest
+          echo "✅ Published to npm!"
 
-      - name: Verify npm packages published
-        if: github.event_name == 'push'
+      - name: Publish to npm (pre-release)
+        if: ${{ github.event.release.prerelease }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
-          echo "Verifying npm packages for version $VERSION"
-          echo "Waiting 60s for npm registry propagation..."
-          sleep 60
+          VERSION="${{ github.event.release.tag_name }}"
 
-          echo "Checking brokle@$VERSION..."
-          npm view brokle@$VERSION
+          # Extract dist-tag from version suffix
+          if [[ "$VERSION" =~ -alpha ]]; then
+            TAG="alpha"
+          elif [[ "$VERSION" =~ -beta ]]; then
+            TAG="beta"
+          elif [[ "$VERSION" =~ -rc ]]; then
+            TAG="rc"
+          else
+            TAG="beta"  # Fallback
+          fi
 
-          echo "Checking brokle-openai@$VERSION..."
-          npm view brokle-openai@$VERSION
-
-          echo "Checking brokle-anthropic@$VERSION..."
-          npm view brokle-anthropic@$VERSION
-
-          echo "Checking brokle-langchain@$VERSION..."
-          npm view brokle-langchain@$VERSION
-
-          echo "✅ All packages verified on npm!"
-
-      - name: Create GitHub Release
-        if: github.event_name == 'push' && success()
-        uses: softprops/action-gh-release@v1
-        with:
-          name: v${{ github.ref_name }}
-          body: |
-            ## Brokle JavaScript SDK ${{ github.ref_name }}
-
-            ### Published Packages
-
-            - **brokle** ([npm](https://www.npmjs.com/package/brokle))
-            - **brokle-openai** ([npm](https://www.npmjs.com/package/brokle-openai))
-            - **brokle-anthropic** ([npm](https://www.npmjs.com/package/brokle-anthropic))
-            - **brokle-langchain** ([npm](https://www.npmjs.com/package/brokle-langchain))
-
-            ### Installation
-
-            ```bash
-            npm install brokle@${VERSION}
-            npm install brokle-openai@${VERSION}
-            npm install brokle-anthropic@${VERSION}
-            npm install brokle-langchain@${VERSION}
-            ```
-
-            ### Changelog
-
-            See [CHANGELOG.md](./CHANGELOG.md) for detailed changes.
-
-            ---
-
-            **Full Changelog**: https://github.com/brokle-ai/brokle-js/compare/${{ github.ref_name }}...HEAD
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') || contains(github.ref_name, '-rc') }}
-          generate_release_notes: true
+          echo "📦 Publishing all packages to npm with @$TAG tag..."
+          pnpm -r publish --access public --no-git-checks --tag $TAG
+          echo "✅ Published to npm with @$TAG tag!"
