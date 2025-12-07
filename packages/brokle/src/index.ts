@@ -54,6 +54,10 @@ export {
   MetricNames,
 } from './metrics/constants';
 
+// Streaming (for streaming response instrumentation)
+export { StreamingAccumulator } from './streaming/accumulator';
+export type { StreamingResult } from './streaming/accumulator';
+
 // Logs (for log export)
 export { createLoggerProvider, createLoggerProviderAsync, createLogsExporter } from './logs';
 
