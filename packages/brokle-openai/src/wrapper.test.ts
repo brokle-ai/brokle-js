@@ -1,13 +1,22 @@
 /**
- * Tests for OpenAI wrapper - Symbol handling
+ * Tests for OpenAI wrapper
  *
- * Note: Full integration tests require brokle package to be built.
- * These tests verify the critical symbol handling fix.
+ * Covers:
+ * - Symbol handling (critical bug fix)
+ * - Proxy pattern correctness
+ * - API structure preservation
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { wrapOpenAI } from './wrapper';
 
-describe('Proxy symbol handling', () => {
+describe('OpenAI Wrapper', () => {
+  beforeAll(() => {
+    // Set required environment variable for testing
+    process.env.BROKLE_API_KEY = 'bk_' + 'x'.repeat(40);
+  });
+
+  describe('Proxy symbol handling', () => {
   describe('symbol property access safety', () => {
     it('should handle Symbol.toStringTag without crashing', () => {
       const mockClient = { chat: { completions: { create: () => {} } } };
@@ -90,6 +99,135 @@ describe('Proxy symbol handling', () => {
       });
 
       expect(proxy.chat).toBeDefined();
+    });
+  });
+  });
+
+  describe('Wrapper Integration', () => {
+    it('should wrap OpenAI client without errors', () => {
+      const mockClient = {
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+        completions: {
+          create: async () => ({ id: 'test', choices: [] }),
+        },
+        embeddings: {
+          create: async () => ({ data: [], usage: {} }),
+        },
+      } as any;
+
+      const wrapped = wrapOpenAI(mockClient);
+      expect(wrapped).toBeDefined();
+      expect(wrapped.chat).toBeDefined();
+      expect(wrapped.chat.completions).toBeDefined();
+    });
+
+    it('should preserve API structure after wrapping', () => {
+      const mockClient = {
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+      } as any;
+
+      const wrapped = wrapOpenAI(mockClient);
+
+      expect(typeof wrapped.chat.completions.create).toBe('function');
+    });
+
+    it('should handle Symbol.toStringTag on wrapped client', () => {
+      const mockClient = {
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+      } as any;
+
+      const wrapped = wrapOpenAI(mockClient);
+
+      // Regression test for Symbol bug
+      expect(() => Object.prototype.toString.call(wrapped)).not.toThrow();
+      expect(() => Object.prototype.toString.call(wrapped.chat)).not.toThrow();
+      expect(() => Object.prototype.toString.call(wrapped.chat.completions)).not.toThrow();
+    });
+
+    it('should handle multiple levels of nesting', () => {
+      const mockClient = {
+        level1: {
+          level2: {
+            level3: {
+              method: () => 'test',
+            },
+          },
+        },
+      } as any;
+
+      const wrapped = wrapOpenAI(mockClient);
+
+      expect(wrapped.level1).toBeDefined();
+      expect(wrapped.level1.level2).toBeDefined();
+      expect(wrapped.level1.level2.level3).toBeDefined();
+      expect(wrapped.level1.level2.level3.method()).toBe('test');
+    });
+
+    it('should preserve non-function properties', () => {
+      const mockClient = {
+        baseURL: 'https://api.openai.com',
+        apiKey: 'sk-test',
+        organization: 'org-test',
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+      } as any;
+
+      const wrapped = wrapOpenAI(mockClient);
+
+      expect(wrapped.baseURL).toBe('https://api.openai.com');
+      expect(wrapped.apiKey).toBe('sk-test');
+      expect(wrapped.organization).toBe('org-test');
+    });
+
+    it('should handle null and undefined properties', () => {
+      const mockClient = {
+        nullProp: null,
+        undefinedProp: undefined,
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+      } as any;
+
+      const wrapped = wrapOpenAI(mockClient);
+
+      expect(wrapped.nullProp).toBeNull();
+      expect(wrapped.undefinedProp).toBeUndefined();
+    });
+
+    it('should not modify original client', () => {
+      const mockClient = {
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+      } as any;
+
+      const originalCreate = mockClient.chat.completions.create;
+      const wrapped = wrapOpenAI(mockClient);
+
+      // Original client should not be modified
+      expect(mockClient.chat.completions.create).toBe(originalCreate);
+
+      // Wrapped client should have different reference (proxied)
+      expect(wrapped.chat.completions.create).not.toBe(originalCreate);
     });
   });
 });

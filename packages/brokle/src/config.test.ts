@@ -189,6 +189,63 @@ describe('validateConfig', () => {
 
       expect(() => validateConfig(config)).toThrow('timeout must be greater than 0');
     });
+
+    it('should reject metricsInterval <= 0', () => {
+      const config: BrokleConfigInput = {
+        apiKey: 'bk_1234567890123456789012345678901234567890',
+        metricsInterval: 0,
+      };
+
+      expect(() => validateConfig(config)).toThrow('metricsInterval must be greater than 0');
+    });
+
+    it('should reject negative metricsInterval', () => {
+      const config: BrokleConfigInput = {
+        apiKey: 'bk_1234567890123456789012345678901234567890',
+        metricsInterval: -5000,
+      };
+
+      expect(() => validateConfig(config)).toThrow('metricsInterval must be greater than 0');
+    });
+  });
+
+  describe('transport validation', () => {
+    it('should accept http transport', () => {
+      const config: BrokleConfigInput = {
+        apiKey: 'bk_1234567890123456789012345678901234567890',
+        transport: 'http',
+      };
+
+      expect(() => validateConfig(config)).not.toThrow();
+    });
+
+    it('should accept grpc transport', () => {
+      const config: BrokleConfigInput = {
+        apiKey: 'bk_1234567890123456789012345678901234567890',
+        transport: 'grpc',
+      };
+
+      expect(() => validateConfig(config)).not.toThrow();
+    });
+
+    it('should reject invalid transport', () => {
+      const config: BrokleConfigInput = {
+        apiKey: 'bk_1234567890123456789012345678901234567890',
+        transport: 'websocket' as any,
+      };
+
+      expect(() => validateConfig(config)).toThrow("Invalid transport: websocket. Must be 'http' or 'grpc'");
+    });
+
+    it('should use default transport for undefined', () => {
+      const config: BrokleConfigInput = {
+        apiKey: 'bk_1234567890123456789012345678901234567890',
+        transport: undefined,
+      };
+
+      const validated = validateConfig(config);
+      expect(validated.transport).toBe('http');
+    });
   });
 
   describe('default values', () => {
@@ -205,6 +262,14 @@ describe('validateConfig', () => {
       expect(validated.flushAt).toBe(100);
       expect(validated.flushInterval).toBe(10);
       expect(validated.debug).toBe(false);
+      expect(validated.transport).toBe('http');
+      expect(validated.metricsInterval).toBe(60000);
+      expect(validated.tracingEnabled).toBe(true);
+      expect(validated.metricsEnabled).toBe(true);
+      expect(validated.logsEnabled).toBe(false);
+      expect(validated.maxQueueSize).toBe(10000);
+      expect(validated.timeout).toBe(30000);
+      expect(validated.flushSync).toBe(false);
     });
   });
 });
