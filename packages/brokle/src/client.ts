@@ -509,6 +509,8 @@ function getGlobalState(): BrokleGlobalState {
     });
   }
 
+  // Non-null assertion safe: property defined in previous if block
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return g[BROKLE_GLOBAL_SYMBOL]!;
 }
 

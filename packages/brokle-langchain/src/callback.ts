@@ -124,20 +124,17 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     prompts: string[],
     runId: string,
     parentRunId?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraParams?: Record<string, any>
   ): Promise<void> {
-    // Extract tags and metadata from extraParams (LangChain.js pattern)
     const runTags = extraParams?.tags as string[] | undefined;
     const runMetadata = extraParams?.metadata as Record<string, unknown> | undefined;
 
-    // Merge config tags with run-level tags
     const allTags = [...new Set([...this.tags, ...(runTags || [])])];
-
-    // Merge config metadata with run-level metadata
     const allMetadata = { ...this.metadata, ...(runMetadata || {}) };
 
-    // Extract model name and provider from LLM serialized object
     const llmType = llm.id?.[llm.id.length - 1] || 'unknown';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const llmKwargs = llm as any;
     const model = llmKwargs.kwargs?.model_name || llmKwargs.kwargs?.model || llmType;
 
@@ -154,11 +151,9 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     }
 
     const spanName = `chat ${model}`;
-
-    // Create parent context to establish parent-child relationship
     const parentContext = this.createParentContext(parentRunId);
 
-    // Build attributes object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'generation',
       [Attrs.GEN_AI_PROVIDER_NAME]: provider,
@@ -221,8 +216,8 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
         span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(outputMessages));
       }
 
-      // Extract usage metrics (if available)
       if (output.llmOutput) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const llmOutput = output.llmOutput as any;
 
         if (llmOutput.tokenUsage) {
@@ -285,9 +280,11 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
    */
   async handleChainStart(
     chain: Serialized,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     inputs: Record<string, any>,
     runId: string,
     parentRunId?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraParams?: Record<string, any>
   ): Promise<void> {
     const runTags = extraParams?.tags as string[] | undefined;
@@ -298,11 +295,9 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
 
     const chainType = chain.id?.[chain.id.length - 1] || 'chain';
     const spanName = `chain ${chainType}`;
-
-    // Create parent context to establish parent-child relationship
     const parentContext = this.createParentContext(parentRunId);
 
-    // Build attributes object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'span',
       'chain.type': chainType,
@@ -341,7 +336,11 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
   /**
    * Called when a chain finishes running
    */
-  async handleChainEnd(outputs: Record<string, any>, runId: string): Promise<void> {
+  async handleChainEnd(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    outputs: Record<string, any>,
+    runId: string
+  ): Promise<void> {
     const span = this.spans.get(runId);
     if (!span) {
       return;
@@ -393,6 +392,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     input: string,
     runId: string,
     parentRunId?: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     extraParams?: Record<string, any>
   ): Promise<void> {
     const runTags = extraParams?.tags as string[] | undefined;
@@ -403,11 +403,9 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
 
     const toolName = tool.id?.[tool.id.length - 1] || 'tool';
     const spanName = `tool ${toolName}`;
-
-    // Create parent context to establish parent-child relationship
     const parentContext = this.createParentContext(parentRunId);
 
-    // Build attributes object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'tool',
       'tool.name': toolName,

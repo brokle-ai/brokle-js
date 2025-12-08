@@ -9,6 +9,7 @@
  */
 
 import { BrokleOtelSpanAttributes as Attrs } from '../types/attributes';
+import type { StreamChunk } from './types';
 
 /**
  * Result of streaming accumulation.
@@ -42,28 +43,29 @@ export interface StreamingResult {
   };
 
   /** Convert streaming result to span attributes */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   toAttributes(): Record<string, any>;
 }
 
 /**
  * Content extractor function type.
  */
-export type ContentExtractor = (chunk: any) => string | undefined;
+export type ContentExtractor = (chunk: StreamChunk) => string | undefined;
 
 /**
  * Finish reason extractor function type.
  */
-export type FinishReasonExtractor = (chunk: any) => string | undefined;
+export type FinishReasonExtractor = (chunk: StreamChunk) => string | undefined;
 
 /**
  * Model extractor function type.
  */
-export type ModelExtractor = (chunk: any) => string | undefined;
+export type ModelExtractor = (chunk: StreamChunk) => string | undefined;
 
 /**
  * Usage extractor function type.
  */
-export type UsageExtractor = (chunk: any) => {
+export type UsageExtractor = (chunk: StreamChunk) => {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -133,7 +135,7 @@ export class StreamingAccumulator {
     this.usageExtractor = options?.usageExtractor;
   }
 
-  onChunk(chunk: any): string | undefined {
+  onChunk(chunk: StreamChunk): string | undefined {
     if (this.finalized) {
       console.warn('onChunk called after finalize()');
       return undefined;
@@ -246,12 +248,14 @@ export class StreamingAccumulator {
    *
    * @returns Dictionary of span attributes following OTEL GenAI conventions
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toAttributes(
     content: string,
     ttftMs?: number,
     avgItl?: number,
     totalDurationMs?: number
   ): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attrs: Record<string, any> = {};
 
     // TTFT (time to first token)
@@ -301,13 +305,15 @@ export class StreamingAccumulator {
     return attrs;
   }
 
-  private extractContent(chunk: any): string | undefined {
+  private extractContent(chunk: StreamChunk): string | undefined {
     if (this.contentExtractor) {
       return this.contentExtractor(chunk);
     }
 
-    if (chunk.choices) {
-      const choices = chunk.choices;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).choices) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const choices = (chunk as any).choices;
       if (choices && choices.length > 0) {
         const delta = choices[0].delta;
         if (delta && delta.content !== undefined) {
@@ -316,12 +322,16 @@ export class StreamingAccumulator {
       }
     }
 
-    if (chunk.delta && chunk.delta.text !== undefined) {
-      return chunk.delta.text;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).delta && (chunk as any).delta.text !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (chunk as any).delta.text;
     }
 
-    if (chunk.type === 'content_block_delta') {
-      const delta = chunk.delta;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).type === 'content_block_delta') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delta = (chunk as any).delta;
       if (delta && delta.text !== undefined) {
         return delta.text;
       }
@@ -330,32 +340,37 @@ export class StreamingAccumulator {
     return undefined;
   }
 
-  private extractFinishReason(chunk: any): string | undefined {
+  private extractFinishReason(chunk: StreamChunk): string | undefined {
     if (this.finishReasonExtractor) {
       return this.finishReasonExtractor(chunk);
     }
 
-    if (chunk.choices) {
-      const choices = chunk.choices;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).choices) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const choices = (chunk as any).choices;
       if (choices && choices.length > 0) {
         return choices[0].finish_reason ?? undefined;
       }
     }
 
-    if (chunk.type === 'message_stop') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).type === 'message_stop') {
       return 'stop';
     }
 
     return undefined;
   }
 
-  private extractModel(chunk: any): string | undefined {
+  private extractModel(chunk: StreamChunk): string | undefined {
     if (this.modelExtractor) {
       return this.modelExtractor(chunk);
     }
 
-    if (chunk.model !== undefined) {
-      return chunk.model;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).model !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (chunk as any).model;
     }
 
     return undefined;
@@ -370,7 +385,7 @@ export class StreamingAccumulator {
    *
    * Returns normalized object with promptTokens, completionTokens, totalTokens.
    */
-  private extractUsage(chunk: any): {
+  private extractUsage(chunk: StreamChunk): {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
@@ -379,9 +394,10 @@ export class StreamingAccumulator {
       return this.usageExtractor(chunk);
     }
 
-    // Anthropic message_start: usage in event.message.usage
-    if (chunk.type === 'message_start') {
-      const message = chunk.message;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).type === 'message_start') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const message = (chunk as any).message;
       if (message && message.usage) {
         const usage = message.usage;
         const inputTokens = usage.input_tokens ?? 0;
@@ -394,9 +410,10 @@ export class StreamingAccumulator {
       }
     }
 
-    // Anthropic message_delta: usage in event.usage (output_tokens only, cumulative)
-    if (chunk.type === 'message_delta') {
-      const usage = chunk.usage;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((chunk as any).type === 'message_delta') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const usage = (chunk as any).usage;
       if (usage && usage.output_tokens !== undefined) {
         const outputTokens = usage.output_tokens ?? 0;
         return {

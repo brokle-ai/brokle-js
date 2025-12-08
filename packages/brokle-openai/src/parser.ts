@@ -17,6 +17,7 @@ export interface ChatCompletionAttributes {
   outputMessages?: Array<{
     role: string;
     content: string | null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     tool_calls?: any[];
   }>;
   usage?: {

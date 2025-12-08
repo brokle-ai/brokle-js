@@ -56,27 +56,21 @@ export interface ObserveOptions {
  * ```
  */
 export function observe(options: ObserveOptions = {}) {
-  return function (
-    _target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor
-  ): PropertyDescriptor {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function (_target: any, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor {
     const originalMethod = descriptor.value;
 
-    // Ensure we're decorating a function
     if (typeof originalMethod !== 'function') {
       throw new Error(`@observe can only be applied to methods, got ${typeof originalMethod}`);
     }
 
-    // Replace the method with a traced version
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (this: any, ...args: any[]) {
       const client = getClient();
       const tracer = client.getTracer();
-
-      // Determine span name
       const spanName = options.name || propertyKey;
 
-      // Build span attributes
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const attrs: Record<string, any> = {
         [Attrs.BROKLE_SPAN_TYPE]: options.asType || 'span',
       };
@@ -168,15 +162,18 @@ export function observe(options: ObserveOptions = {}) {
  * const result = await tracedFn(myData);
  * ```
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function traceFunction<T extends (...args: any[]) => Promise<any>>(
   name: string,
   fn: T,
   options: Omit<ObserveOptions, 'name'> = {}
 ): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (async (...args: any[]) => {
     const client = getClient();
     const tracer = client.getTracer();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attrs: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: options.asType || 'span',
     };

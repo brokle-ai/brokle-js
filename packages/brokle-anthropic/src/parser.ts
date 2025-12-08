@@ -48,7 +48,7 @@ export function extractMessageAttributes(
 
   // Extract output content
   if (response.content && response.content.length > 0) {
-    // Anthropic responses can have multiple content blocks
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const textContents = response.content
       .filter((block) => block.type === 'text')
       .map((block: any) => block.text);

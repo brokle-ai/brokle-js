@@ -37,6 +37,7 @@ export function wrapAnthropic<T extends Anthropic>(client: T): T {
   return createProxy(client, brokleClient, []);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createProxy(target: any, brokleClient: any, path: string[]): any {
   return new Proxy(target, {
     get(obj, prop: string | symbol) {
@@ -69,9 +70,10 @@ function createProxy(target: any, brokleClient: any, path: string[]): any {
 /**
  * Handle streaming response with transparent wrapper instrumentation.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleStreamingResponse(
   brokleClient: any,
-  originalFn: Function,
+  originalFn: (...args: any[]) => Promise<AsyncIterable<any>>,
   context: any,
   args: any[],
   spanName: string,
@@ -97,12 +99,14 @@ async function handleStreamingResponse(
 /**
  * Wrap async iterable stream with accumulator instrumentation.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function* wrapAsyncIterable(
   stream: AsyncIterable<any>,
   span: any,
   accumulator: StreamingAccumulator
 ): AsyncIterableIterator<any> {
   let errorOccurred = false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let caughtError: any;
 
   try {
@@ -131,22 +135,25 @@ async function* wrapAsyncIterable(
     }
 
     span.end();
+  }
 
-    if (errorOccurred) {
-      throw caughtError;
-    }
+  if (errorOccurred) {
+    throw caughtError;
   }
 }
 
 /**
  * Wraps messages.create API call with tracing
  */
-function tracedMessagesCreate(originalFn: Function, brokleClient: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tracedMessagesCreate(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
     const params = args[0];
     const model = params.model || 'unknown';
     const spanName = `chat ${model}`;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'generation',
       [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.ANTHROPIC,
@@ -192,6 +199,7 @@ function tracedMessagesCreate(originalFn: Function, brokleClient: any) {
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return await brokleClient.traced(spanName, async (span: any) => {
       const startTime = Date.now();
 
@@ -199,40 +207,36 @@ function tracedMessagesCreate(originalFn: Function, brokleClient: any) {
         span.setAttribute(key, value);
       }
 
-      try{
-        const response = await originalFn.apply(this, args);
-        const attrs = extractMessageAttributes(response);
+      const response = await originalFn.apply(this, args);
+      const attrs = extractMessageAttributes(response);
 
-        if (attrs.responseId) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_ID, attrs.responseId);
-        }
-        if (attrs.responseModel) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, attrs.responseModel);
-        }
-        if (attrs.stopReason) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_FINISH_REASONS, JSON.stringify([attrs.stopReason]));
-        }
-
-        if (attrs.outputContent) {
-          span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([{
-            role: 'assistant',
-            content: attrs.outputContent,
-          }]));
-        }
-
-        if (attrs.usage) {
-          span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, attrs.usage.inputTokens);
-          span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, attrs.usage.outputTokens);
-          span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, attrs.usage.inputTokens + attrs.usage.outputTokens);
-        }
-
-        const latency = Date.now() - startTime;
-        span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
-
-        return response;
-      } catch (error) {
-        throw error;
+      if (attrs.responseId) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_ID, attrs.responseId);
       }
+      if (attrs.responseModel) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, attrs.responseModel);
+      }
+      if (attrs.stopReason) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_FINISH_REASONS, JSON.stringify([attrs.stopReason]));
+      }
+
+      if (attrs.outputContent) {
+        span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([{
+          role: 'assistant',
+          content: attrs.outputContent,
+        }]));
+      }
+
+      if (attrs.usage) {
+        span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, attrs.usage.inputTokens);
+        span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, attrs.usage.outputTokens);
+        span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, attrs.usage.inputTokens + attrs.usage.outputTokens);
+      }
+
+      const latency = Date.now() - startTime;
+      span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
+
+      return response;
     });
   };
 }

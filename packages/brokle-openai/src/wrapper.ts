@@ -40,6 +40,7 @@ export function wrapOpenAI<T extends OpenAI>(client: T): T {
   return createProxy(client, brokleClient, []);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createProxy(target: any, brokleClient: any, path: string[]): any {
   return new Proxy(target, {
     get(obj, prop: string | symbol) {
@@ -80,9 +81,10 @@ function createProxy(target: any, brokleClient: any, path: string[]): any {
 /**
  * Handle streaming response with transparent wrapper instrumentation.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleStreamingResponse(
   brokleClient: any,
-  originalFn: Function,
+  originalFn: (...args: any[]) => Promise<AsyncIterable<any>>,
   context: any,
   args: any[],
   spanName: string,
@@ -108,12 +110,14 @@ async function handleStreamingResponse(
 /**
  * Wrap async iterable stream with accumulator instrumentation.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function* wrapAsyncIterable(
   stream: AsyncIterable<any>,
   span: any,
   accumulator: StreamingAccumulator
 ): AsyncIterableIterator<any> {
   let errorOccurred = false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let caughtError: any;
 
   try {
@@ -142,22 +146,25 @@ async function* wrapAsyncIterable(
     }
 
     span.end();
+  }
 
-    if (errorOccurred) {
-      throw caughtError;
-    }
+  if (errorOccurred) {
+    throw caughtError;
   }
 }
 
 /**
  * Wraps chat completion API call with tracing
  */
-function tracedChatCompletion(originalFn: Function, brokleClient: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
     const params = args[0];
     const model = params.model || 'unknown';
     const spanName = `chat ${model}`;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'generation',
       [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.OPENAI,
@@ -208,6 +215,7 @@ function tracedChatCompletion(originalFn: Function, brokleClient: any) {
       );
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return await brokleClient.traced(spanName, async (span: any) => {
       const startTime = Date.now();
 
@@ -215,40 +223,36 @@ function tracedChatCompletion(originalFn: Function, brokleClient: any) {
         span.setAttribute(key, value);
       }
 
-      try {
-        const response = await originalFn.apply(this, args);
-        const attrs = extractChatCompletionAttributes(response);
+      const response = await originalFn.apply(this, args);
+      const attrs = extractChatCompletionAttributes(response);
 
-        if (attrs.responseId) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_ID, attrs.responseId);
-        }
-        if (attrs.responseModel) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, attrs.responseModel);
-        }
-        if (attrs.finishReasons && attrs.finishReasons.length > 0) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_FINISH_REASONS, JSON.stringify(attrs.finishReasons));
-        }
-        if (attrs.systemFingerprint) {
-          span.setAttribute(Attrs.OPENAI_RESPONSE_SYSTEM_FINGERPRINT, attrs.systemFingerprint);
-        }
-
-        if (attrs.outputMessages) {
-          span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(attrs.outputMessages));
-        }
-
-        if (attrs.usage) {
-          span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, attrs.usage.promptTokens);
-          span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, attrs.usage.completionTokens);
-          span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, attrs.usage.totalTokens);
-        }
-
-        const latency = Date.now() - startTime;
-        span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
-
-        return response;
-      } catch (error) {
-        throw error;
+      if (attrs.responseId) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_ID, attrs.responseId);
       }
+      if (attrs.responseModel) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, attrs.responseModel);
+      }
+      if (attrs.finishReasons && attrs.finishReasons.length > 0) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_FINISH_REASONS, JSON.stringify(attrs.finishReasons));
+      }
+      if (attrs.systemFingerprint) {
+        span.setAttribute(Attrs.OPENAI_RESPONSE_SYSTEM_FINGERPRINT, attrs.systemFingerprint);
+      }
+
+      if (attrs.outputMessages) {
+        span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(attrs.outputMessages));
+      }
+
+      if (attrs.usage) {
+        span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, attrs.usage.promptTokens);
+        span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, attrs.usage.completionTokens);
+        span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, attrs.usage.totalTokens);
+      }
+
+      const latency = Date.now() - startTime;
+      span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
+
+      return response;
     });
   };
 }
@@ -256,12 +260,15 @@ function tracedChatCompletion(originalFn: Function, brokleClient: any) {
 /**
  * Wraps text completion API call with tracing
  */
-function tracedCompletion(originalFn: Function, brokleClient: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tracedCompletion(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
     const params = args[0];
     const model = params.model || 'unknown';
     const spanName = `completion ${model}`;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return await brokleClient.traced(spanName, async (span: any) => {
       const startTime = Date.now();
 
@@ -286,32 +293,28 @@ function tracedCompletion(originalFn: Function, brokleClient: any) {
         span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, promptStr);
       }
 
-      try {
-        const response = await originalFn.apply(this, args);
-        const attrs = extractCompletionAttributes(response);
+      const response = await originalFn.apply(this, args);
+      const attrs = extractCompletionAttributes(response);
 
-        if (attrs.responseId) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_ID, attrs.responseId);
-        }
-        if (attrs.responseModel) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, attrs.responseModel);
-        }
-        if (attrs.completionText) {
-          span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, attrs.completionText);
-        }
-        if (attrs.usage) {
-          span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, attrs.usage.promptTokens);
-          span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, attrs.usage.completionTokens);
-          span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, attrs.usage.totalTokens);
-        }
-
-        const latency = Date.now() - startTime;
-        span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
-
-        return response;
-      } catch (error) {
-        throw error;
+      if (attrs.responseId) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_ID, attrs.responseId);
       }
+      if (attrs.responseModel) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, attrs.responseModel);
+      }
+      if (attrs.completionText) {
+        span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, attrs.completionText);
+      }
+      if (attrs.usage) {
+        span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, attrs.usage.promptTokens);
+        span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, attrs.usage.completionTokens);
+        span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, attrs.usage.totalTokens);
+      }
+
+      const latency = Date.now() - startTime;
+      span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
+
+      return response;
     });
   };
 }
@@ -319,12 +322,15 @@ function tracedCompletion(originalFn: Function, brokleClient: any) {
 /**
  * Wraps embeddings API call with tracing
  */
-function tracedEmbedding(originalFn: Function, brokleClient: any) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tracedEmbedding(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
     const params = args[0];
     const model = params.model || 'unknown';
     const spanName = `embedding ${model}`;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return await brokleClient.traced(spanName, async (span: any) => {
       const startTime = Date.now();
 
@@ -341,24 +347,20 @@ function tracedEmbedding(originalFn: Function, brokleClient: any) {
         span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, inputStr);
       }
 
-      try {
-        const response = await originalFn.apply(this, args);
+      const response = await originalFn.apply(this, args);
 
-        if (response.model) {
-          span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, response.model);
-        }
-        if (response.usage) {
-          span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, response.usage.prompt_tokens);
-          span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, response.usage.total_tokens);
-        }
-
-        const latency = Date.now() - startTime;
-        span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
-
-        return response;
-      } catch (error) {
-        throw error;
+      if (response.model) {
+        span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, response.model);
       }
+      if (response.usage) {
+        span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, response.usage.prompt_tokens);
+        span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, response.usage.total_tokens);
+      }
+
+      const latency = Date.now() - startTime;
+      span.setAttribute(Attrs.BROKLE_USAGE_LATENCY_MS, latency);
+
+      return response;
     });
   };
 }
