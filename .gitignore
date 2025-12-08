@@ -7,8 +7,8 @@ dist/
 build/
 *.tsbuildinfo
 
-# Logs
-logs/
+# Logs (only in root, not src/logs/)
+/logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
