@@ -72,3 +72,12 @@ export {
   createLogExporter,
   createLogExporterAsync,
 } from './transport';
+
+// Serialization utilities (for custom input/output handling)
+export {
+  serialize,
+  serializeValue,
+  serializeWithMime,
+  serializeFunctionArgs,
+  isChatMLFormat,
+} from './utils/serializer';

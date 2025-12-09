@@ -21,6 +21,7 @@ import { BrokleSpanProcessor } from './processor';
 import { Attrs } from './types/attributes';
 import { createMeterProvider, GenAIMetrics } from './metrics';
 import { createLoggerProvider } from './logs';
+import { serializeWithMime, isChatMLFormat } from './utils/serializer';
 
 // SDK version
 const VERSION = '0.1.4';
@@ -561,49 +562,6 @@ export async function resetClient(): Promise<void> {
     state.client = null;
     state.provider = null;
   }
-}
-
-/**
- * Serialize value with MIME type detection
- * Handles edge cases: null, objects, arrays, strings, etc.
- */
-function serializeWithMime(value: unknown): [string, string] {
-  try {
-    if (value === null || value === undefined) {
-      return ['null', 'application/json'];
-    }
-
-    if (typeof value === 'string') {
-      return [value, 'text/plain'];
-    }
-
-    if (typeof value === 'object') {
-      // Objects and arrays → JSON
-      return [JSON.stringify(value), 'application/json'];
-    }
-
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return [String(value), 'text/plain'];
-    }
-
-    // Fallback
-    return [String(value), 'text/plain'];
-  } catch (error) {
-    // Serialization failed
-    const err = error as Error;
-    return [`<serialization failed: ${err.message}>`, 'text/plain'];
-  }
-}
-
-/**
- * Check if data is in ChatML messages format
- */
-function isChatMLFormat(data: unknown): boolean {
-  return (
-    Array.isArray(data) &&
-    data.length > 0 &&
-    data.every((msg) => typeof msg === 'object' && msg !== null && 'role' in msg)
-  );
 }
 
 /**
