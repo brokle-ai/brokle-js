@@ -81,3 +81,6 @@ export {
   serializeFunctionArgs,
   isChatMLFormat,
 } from './utils/serializer';
+
+// Masking utilities (for PII protection)
+export { MaskingHelper } from './utils/masking';

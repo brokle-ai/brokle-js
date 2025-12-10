@@ -104,6 +104,122 @@ span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, 'gpt-4');
 ### Gzip Compression
 Automatic bandwidth optimization (65% size reduction)
 
+## 🔒 Privacy and Data Masking
+
+Brokle supports client-side data masking to protect sensitive information before transmission. Masking is applied to input/output data and metadata **before** it leaves your application.
+
+### Basic Usage
+
+```typescript
+import { Brokle } from 'brokle';
+
+const maskEmails = (data: unknown): unknown => {
+  if (typeof data === 'string') {
+    return data.replace(/\b[\w.]+@[\w.]+\b/g, '[EMAIL]');
+  }
+  if (typeof data === 'object' && data !== null) {
+    if (Array.isArray(data)) {
+      return data.map(maskEmails);
+    }
+    return Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, maskEmails(v)])
+    );
+  }
+  return data;
+};
+
+// Configure masking at client initialization
+const client = new Brokle({
+  apiKey: 'bk_secret',
+  mask: maskEmails
+});
+
+// All input/output automatically masked
+await client.traced('process', async (span) => {
+  span.setAttribute('input.value', 'Contact john@example.com');
+  // Transmitted as: input.value="Contact [EMAIL]"
+});
+```
+
+### Using Built-in Helpers
+
+The SDK includes pre-built masking utilities for common PII patterns:
+
+```typescript
+import { Brokle } from 'brokle';
+import { MaskingHelper } from 'brokle/utils/masking';
+
+// Option 1: Mask all common PII (recommended)
+const client = new Brokle({
+  apiKey: 'bk_secret',
+  mask: MaskingHelper.maskPII  // Masks emails, phones, SSN, credit cards, API keys
+});
+
+// Option 2: Mask specific PII types
+const client = new Brokle({apiKey: 'bk_secret', mask: MaskingHelper.maskEmails});
+const client = new Brokle({apiKey: 'bk_secret', mask: MaskingHelper.maskPhones});
+const client = new Brokle({apiKey: 'bk_secret', mask: MaskingHelper.maskAPIKeys});
+
+// Option 3: Field-based masking
+const client = new Brokle({
+  apiKey: 'bk_secret',
+  mask: MaskingHelper.fieldMask(['password', 'ssn', 'api_key'])
+});
+
+// Option 4: Combine multiple strategies
+const combinedMask = MaskingHelper.combineMasks(
+  MaskingHelper.maskEmails,
+  MaskingHelper.maskPhones,
+  MaskingHelper.fieldMask(['password', 'secret_token'])
+);
+const client = new Brokle({apiKey: 'bk_secret', mask: combinedMask});
+```
+
+### What Gets Masked
+
+Masking applies to these span attributes:
+- `input.value` - Generic input data
+- `output.value` - Generic output data
+- `gen_ai.input.messages` - LLM chat messages
+- `gen_ai.output.messages` - LLM response messages
+- `metadata` - Custom metadata
+
+**Structural attributes are NOT masked** (model names, token counts, metrics, timestamps, environment tags).
+
+### Error Handling
+
+If your masking function throws an exception, Brokle returns:
+```
+"<fully masked due to failed mask function>"
+```
+
+This ensures sensitive data is **never transmitted** even if masking fails (security-first design).
+
+### Custom Pattern Masking
+
+Create custom masking for your specific needs:
+
+```typescript
+import { MaskingHelper } from 'brokle/utils/masking';
+
+// Mask IPv4 addresses
+const maskIP = MaskingHelper.customPatternMask(
+  /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
+  '[IP_ADDRESS]'
+);
+
+const client = new Brokle({apiKey: 'bk_secret', mask: maskIP});
+```
+
+### Security Best Practices
+
+1. **Client-side masking**: Data is masked before leaving your application
+2. **Test your masks**: Verify patterns catch your specific PII in development
+3. **Fail-safe defaults**: Exceptions result in full masking (never sends unmasked data)
+4. **Performance**: Masking adds <1ms overhead per span
+
+For more examples, see `examples/masking-basic.ts` and `examples/masking-helpers.ts`.
+
 ## 🏗️ Architecture
 
 ### OTEL-Native Design

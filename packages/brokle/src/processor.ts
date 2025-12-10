@@ -2,7 +2,7 @@
  * Brokle Span Processor (Wrapper Pattern)
  *
  * Wraps either BatchSpanProcessor or SimpleSpanProcessor based on configuration.
- * This pattern allows for future extensibility (e.g., PII masking, attribute transformation).
+ * Provides client-side PII masking and attribute transformation capabilities.
  */
 
 import type {
@@ -17,14 +17,24 @@ import {
 import type { Context } from '@opentelemetry/api';
 import type { SpanExporter } from '@opentelemetry/sdk-trace-base';
 import type { BrokleConfig } from './types/config';
+import { Attrs } from './types/attributes';
+
+// Attributes that should be masked if masking is configured
+const MASKABLE_ATTRIBUTES = [
+  Attrs.INPUT_VALUE,
+  Attrs.OUTPUT_VALUE,
+  Attrs.GEN_AI_INPUT_MESSAGES,
+  Attrs.GEN_AI_OUTPUT_MESSAGES,
+  Attrs.METADATA,
+] as const;
 
 /**
  * Brokle-specific span processor that wraps OTEL processors
  *
  * Features:
  * - Automatic processor selection (Batch vs Simple)
- * - Future: PII masking support
- * - Future: Custom attribute transformation
+ * - Client-side PII masking support
+ * - Custom attribute transformation
  * - Async onEnd() for complex processing
  *
  * Pattern: Wrapper (NOT inheritance)
@@ -34,6 +44,7 @@ import type { BrokleConfig } from './types/config';
  */
 export class BrokleSpanProcessor implements SpanProcessor {
   private processor: SpanProcessor;
+  private config: BrokleConfig;
   private environment: string;
   private release: string;
 
@@ -44,6 +55,7 @@ export class BrokleSpanProcessor implements SpanProcessor {
    * @param config - Brokle configuration
    */
   constructor(exporter: SpanExporter, config: BrokleConfig) {
+    this.config = config;
     this.environment = config.environment;
     this.release = config.release;
 
@@ -76,16 +88,13 @@ export class BrokleSpanProcessor implements SpanProcessor {
   }
 
   /**
-   * Called when a span is started
-   * Sets environment and release as span attributes
+   * Called when a span is started. Sets environment and release attributes.
    */
   onStart(span: Span, parentContext: Context): void {
-    // Add environment as span attribute (not resource attribute)
     if (this.environment) {
       span.setAttribute('brokle.environment', this.environment);
     }
 
-    // Add release as span attribute (for experiment tracking)
     if (this.release) {
       span.setAttribute('brokle.release', this.release);
     }
@@ -94,36 +103,56 @@ export class BrokleSpanProcessor implements SpanProcessor {
   }
 
   /**
-   * Called when a span is ended
-   * Post-processing hook (async support for future features)
-   *
-   * IMPORTANT: Sampling is handled by TracerProvider's TraceIdRatioBasedSampler.
-   * We do NOT sample here to avoid creating partial traces.
+   * Called when span ends. Applies PII masking if configured.
    */
   async onEnd(span: ReadableSpan): Promise<void> {
-    // Future: Apply PII masking
-    // if (this.config.mask) {
-    //   span = this.applyMasking(span);
-    // }
+    if (this.config.mask) {
+      this.applyMasking(span);
+    }
 
-    // Future: Custom attribute transformation
-    // span = this.transformAttributes(span);
-
-    // Delegate to wrapped processor
     await this.processor.onEnd(span);
   }
 
-  /**
-   * Force flush all pending spans
-   */
   async forceFlush(): Promise<void> {
     await this.processor.forceFlush();
   }
 
-  /**
-   * Shutdown the processor and exporter
-   */
   async shutdown(): Promise<void> {
     await this.processor.shutdown();
+  }
+
+  /**
+   * Apply PII masking to sensitive span attributes.
+   *
+   * Note: JavaScript OTEL span.attributes is mutable (unlike Python's immutable proxy).
+   * TypeScript 'readonly' is compile-time only and doesn't prevent property mutations.
+   */
+  private applyMasking(span: ReadableSpan): void {
+    const attributes = span.attributes;
+    if (!attributes) {
+      return;
+    }
+
+    for (const attrKey of MASKABLE_ATTRIBUTES) {
+      if (attrKey in attributes) {
+        const originalValue = attributes[attrKey];
+        const maskedValue = this.maskAttribute(originalValue);
+        (attributes as Record<string, unknown>)[attrKey] = maskedValue;
+      }
+    }
+  }
+
+  /**
+   * Apply masking function with error fallback.
+   */
+  private maskAttribute(data: unknown): unknown {
+    try {
+      return this.config.mask!(data);
+    } catch (error) {
+      console.error(
+        `[Brokle] Masking failed: ${error instanceof Error ? error.name : 'Unknown'}: ${error instanceof Error ? error.message.substring(0, 100) : ''}`
+      );
+      return '<fully masked due to failed mask function>';
+    }
   }
 }

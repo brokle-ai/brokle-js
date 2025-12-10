@@ -28,7 +28,21 @@ export interface BrokleConfigInput {
   version?: string;
   /** Trace-level sampling rate (0.0 to 1.0) */
   sampleRate?: number;
-  /** PII masking function */
+  /**
+   * Optional function to mask sensitive data before transmission.
+   *
+   * Applied to: input.value, output.value, gen_ai.*_messages, metadata
+   * Error handling: Returns "<fully masked due to failed mask function>" on exception
+   *
+   * @example
+   * ```typescript
+   * import { MaskingHelper } from 'brokle/utils/masking';
+   * const client = new Brokle({
+   *   apiKey: 'bk_secret',
+   *   mask: MaskingHelper.maskPII
+   * });
+   * ```
+   */
   mask?: (data: unknown) => unknown;
   /** Batch size before flushing to backend */
   flushAt?: number;
