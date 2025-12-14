@@ -84,3 +84,39 @@ export {
 
 // Masking utilities (for PII protection)
 export { MaskingHelper } from './utils/masking';
+
+// Prompt Management
+export {
+  Prompt,
+  PromptManager,
+  PromptCache,
+  PromptError,
+  PromptNotFoundError,
+  PromptCompileError,
+  PromptFetchError,
+} from './prompt';
+export type {
+  PromptType,
+  MessageRole,
+  ChatMessage,
+  TextTemplate,
+  ChatTemplate,
+  Template,
+  ModelConfig,
+  PromptConfig,
+  PromptVersion,
+  PromptData,
+  GetPromptOptions,
+  ListPromptsOptions,
+  UpsertPromptRequest,
+  OpenAIMessage,
+  AnthropicMessage,
+  AnthropicRequest,
+  Variables,
+  FallbackConfig,
+} from './prompt';
+export type { PromptManagerConfig, CacheOptions } from './prompt';
+
+// Evaluations Management (stub for future functionality)
+export { EvaluationsManager } from './evaluations';
+export type { EvaluationsManagerConfig } from './evaluations';

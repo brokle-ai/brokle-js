@@ -22,6 +22,8 @@ import { Attrs } from './types/attributes';
 import { createMeterProvider, GenAIMetrics } from './metrics';
 import { createLoggerProvider } from './logs';
 import { serializeWithMime, isChatMLFormat } from './utils/serializer';
+import { PromptManager } from './prompt';
+import { EvaluationsManager } from './evaluations';
 
 // SDK version
 const VERSION = '0.1.4';
@@ -45,6 +47,8 @@ export class Brokle {
   private meterProvider: MeterProvider | null = null;
   private loggerProvider: LoggerProvider | null = null;
   private genAIMetrics: GenAIMetrics | null = null;
+  private promptManager: PromptManager | null = null;
+  private evaluationsManager: EvaluationsManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -309,6 +313,51 @@ export class Brokle {
    */
   getMetrics(): GenAIMetrics | null {
     return this.genAIMetrics;
+  }
+
+  /**
+   * Get the Prompt manager for prompt management
+   *
+   * @returns PromptManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * const prompt = await client.prompts.get("greeting", { label: "production" });
+   * const messages = prompt.toOpenAIMessages({ name: "Alice" });
+   * ```
+   */
+  get prompts(): PromptManager {
+    if (!this.promptManager) {
+      this.promptManager = new PromptManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.promptManager;
+  }
+
+  /**
+   * Get the Evaluations manager for evaluation and scoring operations
+   *
+   * @returns EvaluationsManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * // Future functionality:
+   * // const result = await client.evaluations.run(traceId, 'accuracy');
+   * // const score = await client.evaluations.score(spanId, 'relevance', 0.95);
+   * ```
+   */
+  get evaluations(): EvaluationsManager {
+    if (!this.evaluationsManager) {
+      this.evaluationsManager = new EvaluationsManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.evaluationsManager;
   }
 
   /**
