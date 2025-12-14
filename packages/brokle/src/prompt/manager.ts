@@ -551,11 +551,11 @@ export class PromptManager {
       '/v1/prompts',
       request
     );
-    const data = this.unwrapResponse(rawResponse, request.name);
+    this.unwrapResponse(rawResponse, request.name);
 
     this.invalidate(request.name);
 
-    return Prompt.fromData(data);
+    return await this.get(request.name, { forceRefresh: true });
   }
 
   /**

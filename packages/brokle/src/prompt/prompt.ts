@@ -55,7 +55,7 @@ export class Prompt {
     this.variables = data.variables;
     this.labels = data.labels;
     this.version = data.version;
-    this.isFallback = data.is_fallback;
+    this.isFallback = data.is_fallback ?? false;
     this.commitMessage = data.commit_message;
     this.createdAt = data.created_at;
   }
