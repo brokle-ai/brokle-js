@@ -16,6 +16,8 @@ import type {
   OpenAIMessage,
   AnthropicMessage,
   AnthropicRequest,
+  Fallback,
+  ChatMessage,
 } from './types';
 import {
   compileTemplate,
@@ -289,7 +291,7 @@ export class Prompt {
    */
   getModelConfig(overrides?: Partial<ModelConfig>): ModelConfig {
     return {
-      ...this.config,
+      ...(this.config ?? {}),
       ...overrides,
     };
   }
@@ -354,13 +356,34 @@ export class Prompt {
 
   /**
    * Create a fallback Prompt when fetch fails
+   *
+   * Type is auto-detected from fallback content:
+   * - String → TEXT prompt
+   * - Array of messages → CHAT prompt
+   *
+   * @param name - Prompt name
+   * @param fallback - Fallback content (string for text, array for chat)
+   * @returns Fallback Prompt instance with isFallback=true
+   *
+   * @example
+   * ```typescript
+   * // Text fallback
+   * const prompt = Prompt.createFallback("greeting", "Hello {{name}}!");
+   *
+   * // Chat fallback
+   * const prompt = Prompt.createFallback("assistant", [
+   *   { role: "system", content: "You are helpful." },
+   *   { role: "user", content: "{{query}}" }
+   * ]);
+   * ```
    */
-  static createFallback(
-    name: string,
-    template: Template,
-    type: PromptType,
-    config?: ModelConfig
-  ): Prompt {
+  static createFallback(name: string, fallback: Fallback): Prompt {
+    const isChat = Array.isArray(fallback);
+    const template: Template = isChat
+      ? { messages: fallback as ChatMessage[] }
+      : { content: fallback as string };
+    const type: PromptType = isChat ? 'chat' : 'text';
+
     return new Prompt({
       id: 'fallback',
       project_id: '',
@@ -369,7 +392,7 @@ export class Prompt {
       description: 'Fallback prompt',
       tags: [],
       template,
-      config: config || null,
+      config: null,
       variables: extractVariables(template),
       labels: [],
       version: 0,

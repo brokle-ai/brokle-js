@@ -12,7 +12,6 @@ import type {
   ListPromptsOptions,
   PaginatedResponse,
   UpsertPromptRequest,
-  FallbackConfig,
   APIResponse,
   APIPagination,
 } from './types';
@@ -362,11 +361,18 @@ export class PromptManager {
   }
 
   /**
-   * Get a prompt by name with caching
+   * Get a prompt by name with caching and optional fallback
+   *
+   * Priority order:
+   * 1. Fresh cache - return immediately
+   * 2. Fetch from API - cache and return
+   * 3. Stale cache - return stale, trigger background refresh
+   * 4. Fallback - create fallback prompt if provided
+   * 5. Throw - if nothing available
    *
    * @param name - Prompt name
-   * @param options - Fetch options (label, version, cache settings)
-   * @returns Prompt instance
+   * @param options - Fetch options (label, version, cache settings, fallback)
+   * @returns Prompt instance (check `prompt.isFallback` to detect if fallback was used)
    *
    * @example
    * ```typescript
@@ -376,95 +382,91 @@ export class PromptManager {
    * // Get by label
    * const prodPrompt = await client.get("greeting", { label: "production" });
    *
-   * // Get specific version
-   * const v2Prompt = await client.get("greeting", { version: 2 });
+   * // Get with text fallback (guaranteed availability)
+   * const prompt = await client.get("greeting", {
+   *   fallback: "Hello {{name}}!"
+   * });
+   *
+   * // Get with chat fallback
+   * const prompt = await client.get("assistant", {
+   *   fallback: [
+   *     { role: "system", content: "You are helpful." },
+   *     { role: "user", content: "{{query}}" }
+   *   ]
+   * });
+   *
+   * // Check if fallback was used
+   * if (prompt.isFallback) {
+   *   console.warn("Using fallback prompt - API unavailable");
+   * }
    * ```
    */
   async get(name: string, options?: GetPromptOptions): Promise<Prompt> {
     const cacheKey = PromptCache.generateKey(name, options);
     const ttl = options?.cacheTTL ?? this.cacheTtlSeconds;
+    const fallback = options?.fallback;
 
+    // Force refresh - skip cache, but use fallback on failure
     if (options?.forceRefresh) {
       this.log(`Force refresh: ${cacheKey}`);
-      const data = await this.fetchPrompt(name, options);
-      this.cache.set(cacheKey, data, ttl);
-      return Prompt.fromData(data);
+      try {
+        const data = await this.fetchPrompt(name, options);
+        this.cache.set(cacheKey, data, ttl);
+        return Prompt.fromData(data);
+      } catch (fetchError) {
+        if (fallback !== undefined) {
+          this.log(`Force refresh failed, using fallback: ${name}`);
+          return Prompt.createFallback(name, fallback);
+        }
+        throw fetchError;
+      }
     }
 
+    // Fresh cache - return immediately
     const cached = this.cache.get(cacheKey);
-
     if (cached && this.cache.isFresh(cacheKey)) {
       this.log(`Cache hit (fresh): ${cacheKey}`);
       return Prompt.fromData(cached);
     }
 
-    // Stale cache - return stale and refresh in background
-    if (cached && this.cache.isStale(cacheKey)) {
-      this.log(`Cache hit (stale): ${cacheKey}`);
+    // Try fetch from API
+    try {
+      this.log(`Cache miss: ${cacheKey}`);
+      const data = await this.fetchPrompt(name, options);
+      this.cache.set(cacheKey, data, ttl);
+      return Prompt.fromData(data);
+    } catch (fetchError) {
+      // Stale cache - return stale and refresh in background
+      if (cached) {
+        this.log(`Fetch failed, using stale cache: ${cacheKey}`);
 
-      // Trigger background refresh if not already in progress
-      if (!this.cache.isRefreshing(cacheKey)) {
-        this.cache.startRefresh(cacheKey);
-        this.fetchPrompt(name, options)
-          .then((data) => {
-            this.cache.set(cacheKey, data, ttl);
-            this.log(`Background refresh complete: ${cacheKey}`);
-          })
-          .catch((err) => {
-            this.log(`Background refresh failed: ${err.message}`);
-          })
-          .finally(() => {
-            this.cache.endRefresh(cacheKey);
-          });
+        // Trigger background refresh if not already in progress
+        if (!this.cache.isRefreshing(cacheKey)) {
+          this.cache.startRefresh(cacheKey);
+          this.fetchPrompt(name, options)
+            .then((data) => {
+              this.cache.set(cacheKey, data, ttl);
+              this.log(`Background refresh complete: ${cacheKey}`);
+            })
+            .catch((err) => {
+              this.log(`Background refresh failed: ${err.message}`);
+            })
+            .finally(() => {
+              this.cache.endRefresh(cacheKey);
+            });
+        }
+
+        return Prompt.fromData(cached);
       }
 
-      return Prompt.fromData(cached);
-    }
+      // Fallback - if provided, create fallback prompt
+      if (fallback !== undefined) {
+        this.log(`Fetch failed, using fallback: ${name}`);
+        return Prompt.createFallback(name, fallback);
+      }
 
-    this.log(`Cache miss: ${cacheKey}`);
-    const data = await this.fetchPrompt(name, options);
-    this.cache.set(cacheKey, data, ttl);
-    return Prompt.fromData(data);
-  }
-
-  /**
-   * Get a prompt with fallback on failure
-   *
-   * If the API request fails, returns a fallback prompt instead of throwing.
-   * Useful for graceful degradation in production.
-   *
-   * @param name - Prompt name
-   * @param fallback - Fallback configuration
-   * @param options - Fetch options
-   * @returns Prompt instance (real or fallback)
-   *
-   * @example
-   * ```typescript
-   * const prompt = await client.getWithFallback("greeting", {
-   *   template: { content: "Hello, {{name}}!" },
-   *   type: "text"
-   * });
-   *
-   * if (prompt.isFallback) {
-   *   console.warn("Using fallback prompt");
-   * }
-   * ```
-   */
-  async getWithFallback(
-    name: string,
-    fallback: FallbackConfig,
-    options?: GetPromptOptions
-  ): Promise<Prompt> {
-    try {
-      return await this.get(name, options);
-    } catch (err) {
-      this.log(`Fetch failed, using fallback: ${(err as Error).message}`);
-      return Prompt.createFallback(
-        name,
-        fallback.template,
-        fallback.type,
-        fallback.config
-      );
+      // No cache, no fallback - throw
+      throw fetchError;
     }
   }
 

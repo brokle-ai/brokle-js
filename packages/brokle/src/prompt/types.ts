@@ -4,10 +4,6 @@
  * TypeScript interfaces for the Brokle Prompt Management system.
  */
 
-// ============================================================================
-// API Response Envelope Types
-// ============================================================================
-
 /**
  * API response envelope structure
  *
@@ -69,10 +65,6 @@ export interface APIPagination {
   /** Whether there is a previous page */
   has_prev: boolean;
 }
-
-// ============================================================================
-// Prompt Types
-// ============================================================================
 
 /**
  * Prompt type - text for simple templates, chat for message arrays
@@ -176,6 +168,27 @@ export interface GetPromptOptions {
   cacheTTL?: number;
   /** Force refresh from API, ignoring cache */
   forceRefresh?: boolean;
+  /**
+   * Fallback content if fetch fails
+   *
+   * Type is auto-detected:
+   * - String → TEXT prompt
+   * - Array of messages → CHAT prompt
+   *
+   * @example
+   * ```typescript
+   * // Text fallback
+   * const prompt = await manager.get("greeting", {
+   *   fallback: "Hello {{name}}!"
+   * });
+   *
+   * // Chat fallback
+   * const prompt = await manager.get("assistant", {
+   *   fallback: [{ role: "system", content: "You are helpful." }]
+   * });
+   * ```
+   */
+  fallback?: Fallback;
 }
 
 /**
@@ -270,16 +283,52 @@ export interface AnthropicRequest {
 export type Variables = Record<string, string | number | boolean>;
 
 /**
- * Fallback configuration
+ * Text fallback - a simple string template
+ *
+ * @example
+ * ```typescript
+ * const fallback: TextFallback = "Hello {{name}}!";
+ * ```
  */
-export interface FallbackConfig {
-  /** Default template to use if fetch fails */
-  template: Template;
-  /** Prompt type for fallback */
-  type: PromptType;
-  /** Default model config */
-  config?: ModelConfig;
-}
+export type TextFallback = string;
+
+/**
+ * Chat fallback - an array of chat messages
+ *
+ * @example
+ * ```typescript
+ * const fallback: ChatFallback = [
+ *   { role: "system", content: "You are helpful." },
+ *   { role: "user", content: "{{query}}" }
+ * ];
+ * ```
+ */
+export type ChatFallback = ChatMessage[];
+
+/**
+ * Fallback type - string for text prompts, array for chat prompts
+ *
+ * Type is auto-detected:
+ * - String → TEXT prompt
+ * - Array → CHAT prompt
+ *
+ * @example
+ * ```typescript
+ * // Text fallback
+ * const prompt = await manager.get("greeting", {
+ *   fallback: "Hello {{name}}!"
+ * });
+ *
+ * // Chat fallback
+ * const prompt = await manager.get("assistant", {
+ *   fallback: [
+ *     { role: "system", content: "You are helpful." },
+ *     { role: "user", content: "{{query}}" }
+ *   ]
+ * });
+ * ```
+ */
+export type Fallback = TextFallback | ChatFallback;
 
 /**
  * Prompt client configuration

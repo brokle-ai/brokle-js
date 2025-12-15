@@ -68,5 +68,7 @@ export type {
   AnthropicMessage,
   AnthropicRequest,
   Variables,
-  FallbackConfig,
+  Fallback,
+  TextFallback,
+  ChatFallback,
 } from './types';
