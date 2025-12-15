@@ -6,9 +6,19 @@
  */
 
 import type OpenAI from 'openai';
-import { getClient, Attrs, LLMProvider, StreamingAccumulator } from 'brokle';
+import {
+  getClient,
+  Attrs,
+  LLMProvider,
+  StreamingAccumulator,
+  extractBrokleOptions,
+  addPromptAttributes,
+  type BrokleOptions,
+} from 'brokle';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { extractChatCompletionAttributes, extractCompletionAttributes } from './parser';
+
+export type { BrokleOptions };
 
 /**
  * Wraps OpenAI SDK client with automatic tracing
@@ -160,8 +170,9 @@ async function* wrapAsyncIterable(
 function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
-    const params = args[0];
-    const model = params.model || 'unknown';
+    const rawParams = args[0];
+    const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
+    const model = cleanParams.model || 'unknown';
     const spanName = `chat ${model}`;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,44 +183,48 @@ function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brok
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
     };
 
-    if (params.temperature !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_TEMPERATURE] = params.temperature;
+    addPromptAttributes(attributes, brokleOpts);
+
+    if (cleanParams.temperature !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_TEMPERATURE] = cleanParams.temperature;
     }
-    if (params.max_tokens !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_MAX_TOKENS] = params.max_tokens;
+    if (cleanParams.max_tokens !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_MAX_TOKENS] = cleanParams.max_tokens;
     }
-    if (params.top_p !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_TOP_P] = params.top_p;
+    if (cleanParams.top_p !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_TOP_P] = cleanParams.top_p;
     }
-    if (params.frequency_penalty !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_FREQUENCY_PENALTY] = params.frequency_penalty;
+    if (cleanParams.frequency_penalty !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_FREQUENCY_PENALTY] = cleanParams.frequency_penalty;
     }
-    if (params.presence_penalty !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_PRESENCE_PENALTY] = params.presence_penalty;
+    if (cleanParams.presence_penalty !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_PRESENCE_PENALTY] = cleanParams.presence_penalty;
     }
-    if (params.user !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_USER] = params.user;
+    if (cleanParams.user !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_USER] = cleanParams.user;
     }
 
-    if (params.n !== undefined) {
-      attributes[Attrs.OPENAI_REQUEST_N] = params.n;
+    if (cleanParams.n !== undefined) {
+      attributes[Attrs.OPENAI_REQUEST_N] = cleanParams.n;
     }
 
-    if (params.messages) {
-      attributes[Attrs.GEN_AI_INPUT_MESSAGES] = JSON.stringify(params.messages);
+    if (cleanParams.messages) {
+      attributes[Attrs.GEN_AI_INPUT_MESSAGES] = JSON.stringify(cleanParams.messages);
     }
 
-    const isStreaming = params.stream === true;
+    const isStreaming = cleanParams.stream === true;
     if (isStreaming) {
       attributes[Attrs.BROKLE_STREAMING] = true;
     }
+
+    const cleanArgs = [cleanParams, ...args.slice(1)];
 
     if (isStreaming) {
       return handleStreamingResponse(
         brokleClient,
         originalFn,
         this,
-        args,
+        cleanArgs,
         spanName,
         attributes
       );
@@ -223,7 +238,7 @@ function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brok
         span.setAttribute(key, value);
       }
 
-      const response = await originalFn.apply(this, args);
+      const response = await originalFn.apply(this, cleanArgs);
       const attrs = extractChatCompletionAttributes(response);
 
       if (attrs.responseId) {
@@ -264,36 +279,46 @@ function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brok
 function tracedCompletion(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
-    const params = args[0];
-    const model = params.model || 'unknown';
+    const rawParams = args[0];
+    const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
+    const model = cleanParams.model || 'unknown';
     const spanName = `completion ${model}`;
+
+    const cleanArgs = [cleanParams, ...args.slice(1)];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const attributes: Record<string, any> = {
+      [Attrs.BROKLE_SPAN_TYPE]: 'generation',
+      [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.OPENAI,
+      [Attrs.GEN_AI_OPERATION_NAME]: 'text_completion',
+      [Attrs.GEN_AI_REQUEST_MODEL]: model,
+    };
+
+    addPromptAttributes(attributes, brokleOpts);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return await brokleClient.traced(spanName, async (span: any) => {
       const startTime = Date.now();
 
-      span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.OPENAI);
-      span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'text_completion');
-      span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
-
-      // Set request parameters
-      if (params.temperature !== undefined) {
-        span.setAttribute(Attrs.GEN_AI_REQUEST_TEMPERATURE, params.temperature);
-      }
-      if (params.max_tokens !== undefined) {
-        span.setAttribute(Attrs.GEN_AI_REQUEST_MAX_TOKENS, params.max_tokens);
+      for (const [key, value] of Object.entries(attributes)) {
+        span.setAttribute(key, value);
       }
 
-      // Set prompt
-      if (params.prompt) {
-        const promptStr = Array.isArray(params.prompt)
-          ? JSON.stringify(params.prompt)
-          : params.prompt;
+      if (cleanParams.temperature !== undefined) {
+        span.setAttribute(Attrs.GEN_AI_REQUEST_TEMPERATURE, cleanParams.temperature);
+      }
+      if (cleanParams.max_tokens !== undefined) {
+        span.setAttribute(Attrs.GEN_AI_REQUEST_MAX_TOKENS, cleanParams.max_tokens);
+      }
+
+      if (cleanParams.prompt) {
+        const promptStr = Array.isArray(cleanParams.prompt)
+          ? JSON.stringify(cleanParams.prompt)
+          : cleanParams.prompt;
         span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, promptStr);
       }
 
-      const response = await originalFn.apply(this, args);
+      const response = await originalFn.apply(this, cleanArgs);
       const attrs = extractCompletionAttributes(response);
 
       if (attrs.responseId) {
@@ -326,28 +351,39 @@ function tracedCompletion(originalFn: (...args: any[]) => Promise<any>, brokleCl
 function tracedEmbedding(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
-    const params = args[0];
-    const model = params.model || 'unknown';
+    const rawParams = args[0];
+    const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
+    const model = cleanParams.model || 'unknown';
     const spanName = `embedding ${model}`;
+
+    const cleanArgs = [cleanParams, ...args.slice(1)];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const attributes: Record<string, any> = {
+      [Attrs.BROKLE_SPAN_TYPE]: 'embedding',
+      [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.OPENAI,
+      [Attrs.GEN_AI_OPERATION_NAME]: 'embeddings',
+      [Attrs.GEN_AI_REQUEST_MODEL]: model,
+    };
+
+    addPromptAttributes(attributes, brokleOpts);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return await brokleClient.traced(spanName, async (span: any) => {
       const startTime = Date.now();
 
-      span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'embedding');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.OPENAI);
-      span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'embeddings');
-      span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
+      for (const [key, value] of Object.entries(attributes)) {
+        span.setAttribute(key, value);
+      }
 
-      // Set input
-      if (params.input) {
-        const inputStr = Array.isArray(params.input)
-          ? JSON.stringify(params.input)
-          : params.input;
+      if (cleanParams.input) {
+        const inputStr = Array.isArray(cleanParams.input)
+          ? JSON.stringify(cleanParams.input)
+          : cleanParams.input;
         span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, inputStr);
       }
 
-      const response = await originalFn.apply(this, args);
+      const response = await originalFn.apply(this, cleanArgs);
 
       if (response.model) {
         span.setAttribute(Attrs.GEN_AI_RESPONSE_MODEL, response.model);

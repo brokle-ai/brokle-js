@@ -23,10 +23,8 @@ export interface EvaluationsManagerConfig {
  * All methods will throw NotImplementedError until the API is ready.
  */
 export class EvaluationsManager {
-  // @ts-ignore - Config will be used in future implementation
-  constructor(private config: EvaluationsManagerConfig) {
-    // Stub constructor - config will be used when implementation is added
-  }
+  constructor(_config: EvaluationsManagerConfig) {}
+
 
   /**
    * Run an evaluation on a trace

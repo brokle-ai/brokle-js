@@ -122,3 +122,7 @@ export type { PromptManagerConfig, CacheOptions } from './prompt';
 // Evaluations Management (stub for future functionality)
 export { EvaluationsManager } from './evaluations';
 export type { EvaluationsManagerConfig } from './evaluations';
+
+// Wrapper utilities (for SDK wrapper packages)
+export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
+export type { BrokleOptions } from './utils/wrappers';

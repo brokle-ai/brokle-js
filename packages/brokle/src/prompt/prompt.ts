@@ -118,11 +118,10 @@ export class Prompt {
    * @returns LangChain PromptTemplate or ChatPromptTemplate
    * @throws Error if @langchain/core is not installed
    */
-  toLangChain(): any {
+  async toLangChain(): Promise<any> {
     try {
       // Dynamic import to avoid requiring langchain as dependency
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { ChatPromptTemplate, PromptTemplate } = require('@langchain/core/prompts');
+      const { ChatPromptTemplate, PromptTemplate } = await import('@langchain/core/prompts');
 
       if (this.isText()) {
         // Text template -> convert {{var}} to {var} for LangChain
@@ -134,18 +133,18 @@ export class Prompt {
       }
 
       const messages = (this.template as ChatTemplate).messages;
-      const langchainMessages = messages.map((msg) => {
+      const langchainMessages: [string, string][] = messages.map((msg) => {
         const content = msg.content.replace(/\{\{(\w+)\}\}/g, '{$1}');
 
         switch (msg.role) {
           case 'system':
-            return ['system', content] as const;
+            return ['system', content];
           case 'user':
-            return ['human', content] as const;
+            return ['human', content];
           case 'assistant':
-            return ['ai', content] as const;
+            return ['ai', content];
           default:
-            return ['human', content] as const;
+            return ['human', content];
         }
       });
 
@@ -166,16 +165,12 @@ export class Prompt {
    * @returns LlamaIndex PromptTemplate or ChatPromptTemplate
    * @throws Error if llamaindex is not installed
    */
-  toLlamaIndex(): any {
+  async toLlamaIndex(): Promise<any> {
     try {
       // Dynamic import to avoid requiring llamaindex as dependency
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const {
-        PromptTemplate,
-        ChatPromptTemplate,
-        ChatMessage: LlamaMessage,
-        MessageRole,
-      } = require('llamaindex');
+      // @ts-expect-error - llamaindex is an optional dependency, types may not be installed
+      const llamaindex = await import('llamaindex');
+      const { PromptTemplate, ChatPromptTemplate, ChatMessage: LlamaMessage, MessageRole } = llamaindex;
 
       if (this.isText()) {
         return new PromptTemplate({

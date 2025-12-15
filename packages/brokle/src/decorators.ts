@@ -7,6 +7,7 @@
 import { SpanStatusCode } from '@opentelemetry/api';
 import { getClient } from './client';
 import { Attrs } from './types/attributes';
+import type { Prompt } from './prompt';
 
 /**
  * Options for the @observe decorator
@@ -30,6 +31,8 @@ export interface ObserveOptions {
   captureInput?: boolean;
   /** Capture function output as span attribute */
   captureOutput?: boolean;
+  /** Prompt to link to this span (fallback prompts are not linked) */
+  prompt?: Prompt;
 }
 
 /**
@@ -75,7 +78,6 @@ export function observe(options: ObserveOptions = {}) {
         [Attrs.BROKLE_SPAN_TYPE]: options.asType || 'span',
       };
 
-      // Add user/session filtering attributes
       if (options.userId) {
         attrs[Attrs.USER_ID] = options.userId;
       }
@@ -92,7 +94,15 @@ export function observe(options: ObserveOptions = {}) {
         attrs[Attrs.BROKLE_VERSION] = options.version;
       }
 
-      // Capture input if requested
+      // Link prompt if provided and NOT a fallback
+      if (options.prompt && !options.prompt.isFallback) {
+        attrs[Attrs.BROKLE_PROMPT_NAME] = options.prompt.name;
+        attrs[Attrs.BROKLE_PROMPT_VERSION] = options.prompt.version;
+        if (options.prompt.id && options.prompt.id !== 'fallback') {
+          attrs[Attrs.BROKLE_PROMPT_ID] = options.prompt.id;
+        }
+      }
+
       if (options.captureInput) {
         try {
           attrs['input'] = JSON.stringify(args);
@@ -102,13 +112,10 @@ export function observe(options: ObserveOptions = {}) {
         }
       }
 
-      // Start span
       return await tracer.startActiveSpan(spanName, { attributes: attrs }, async (span) => {
         try {
-          // Call original method
           const result = await originalMethod.apply(this, args);
 
-          // Capture output if requested
           if (options.captureOutput) {
             try {
               span.setAttribute('output', JSON.stringify(result));
@@ -118,24 +125,20 @@ export function observe(options: ObserveOptions = {}) {
             }
           }
 
-          // Mark span as successful
           span.setStatus({ code: SpanStatusCode.OK });
 
           return result;
         } catch (error) {
           const err = error as Error;
 
-          // Record exception
           span.recordException(err);
           span.setStatus({
             code: SpanStatusCode.ERROR,
             message: err.message,
           });
 
-          // Re-throw error
           throw error;
         } finally {
-          // End span
           span.end();
         }
       });
@@ -192,6 +195,15 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
     }
     if (options.version) {
       attrs[Attrs.BROKLE_VERSION] = options.version;
+    }
+
+    // Link prompt if provided and NOT a fallback
+    if (options.prompt && !options.prompt.isFallback) {
+      attrs[Attrs.BROKLE_PROMPT_NAME] = options.prompt.name;
+      attrs[Attrs.BROKLE_PROMPT_VERSION] = options.prompt.version;
+      if (options.prompt.id && options.prompt.id !== 'fallback') {
+        attrs[Attrs.BROKLE_PROMPT_ID] = options.prompt.id;
+      }
     }
 
     if (options.captureInput) {
