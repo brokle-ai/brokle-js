@@ -137,6 +137,45 @@ const client = getClient({
 });
 ```
 
+## Prompt Management
+
+Brokle provides centralized prompt storage with versioning, labels, and caching.
+
+```typescript
+import { getClient } from 'brokle';
+
+const client = getClient();
+
+// Fetch a prompt
+const prompt = await client.prompts.get("greeting", {
+  label: "production"
+});
+
+// Compile with variables
+const compiled = prompt.compile({ name: "Alice" });
+
+// Convert to OpenAI format
+const messages = prompt.toOpenAIMessages({ name: "Alice" });
+
+// Convert to Anthropic format
+const anthropicRequest = prompt.toAnthropicRequest({ name: "Alice" });
+
+// List all prompts
+const { data, pagination } = await client.prompts.list({
+  type: "chat",
+  limit: 10
+});
+
+data.forEach(p => {
+  console.log(`${p.name} v${p.version} (${p.type})`);
+});
+
+// Cache management
+client.prompts.invalidate("greeting");  // Invalidate specific prompt
+client.prompts.clearCache();            // Clear all cached prompts
+const stats = client.prompts.getCacheStats();  // Get cache stats
+```
+
 ## Advanced Usage
 
 ### Manual Span Control

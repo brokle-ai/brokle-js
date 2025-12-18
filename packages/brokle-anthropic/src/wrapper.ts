@@ -6,9 +6,19 @@
  */
 
 import type Anthropic from '@anthropic-ai/sdk';
-import { getClient, Attrs, LLMProvider, StreamingAccumulator } from 'brokle';
+import {
+  getClient,
+  Attrs,
+  LLMProvider,
+  StreamingAccumulator,
+  extractBrokleOptions,
+  addPromptAttributes,
+  type BrokleOptions,
+} from 'brokle';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { extractMessageAttributes } from './parser';
+
+export type { BrokleOptions };
 
 /**
  * Wraps Anthropic SDK client with automatic tracing
@@ -149,8 +159,9 @@ async function* wrapAsyncIterable(
 function tracedMessagesCreate(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
-    const params = args[0];
-    const model = params.model || 'unknown';
+    const rawParams = args[0];
+    const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
+    const model = cleanParams.model || 'unknown';
     const spanName = `chat ${model}`;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,39 +172,43 @@ function tracedMessagesCreate(originalFn: (...args: any[]) => Promise<any>, brok
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
     };
 
-    if (params.max_tokens !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_MAX_TOKENS] = params.max_tokens;
+    addPromptAttributes(attributes, brokleOpts);
+
+    if (cleanParams.max_tokens !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_MAX_TOKENS] = cleanParams.max_tokens;
     }
-    if (params.temperature !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_TEMPERATURE] = params.temperature;
+    if (cleanParams.temperature !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_TEMPERATURE] = cleanParams.temperature;
     }
-    if (params.top_p !== undefined) {
-      attributes[Attrs.GEN_AI_REQUEST_TOP_P] = params.top_p;
+    if (cleanParams.top_p !== undefined) {
+      attributes[Attrs.GEN_AI_REQUEST_TOP_P] = cleanParams.top_p;
     }
-    if (params.top_k !== undefined) {
-      attributes[Attrs.ANTHROPIC_REQUEST_TOP_K] = params.top_k;
+    if (cleanParams.top_k !== undefined) {
+      attributes[Attrs.ANTHROPIC_REQUEST_TOP_K] = cleanParams.top_k;
     }
 
-    if (params.messages) {
-      attributes[Attrs.GEN_AI_INPUT_MESSAGES] = JSON.stringify(params.messages);
+    if (cleanParams.messages) {
+      attributes[Attrs.GEN_AI_INPUT_MESSAGES] = JSON.stringify(cleanParams.messages);
     }
 
-    if (params.system) {
-      const systemInstructions = [{ role: 'system', content: params.system }];
+    if (cleanParams.system) {
+      const systemInstructions = [{ role: 'system', content: cleanParams.system }];
       attributes[Attrs.GEN_AI_SYSTEM_INSTRUCTIONS] = JSON.stringify(systemInstructions);
     }
 
-    const isStreaming = params.stream === true;
+    const isStreaming = cleanParams.stream === true;
     if (isStreaming) {
       attributes[Attrs.BROKLE_STREAMING] = true;
     }
+
+    const cleanArgs = [cleanParams, ...args.slice(1)];
 
     if (isStreaming) {
       return handleStreamingResponse(
         brokleClient,
         originalFn,
         this,
-        args,
+        cleanArgs,
         spanName,
         attributes
       );
@@ -207,7 +222,7 @@ function tracedMessagesCreate(originalFn: (...args: any[]) => Promise<any>, brok
         span.setAttribute(key, value);
       }
 
-      const response = await originalFn.apply(this, args);
+      const response = await originalFn.apply(this, cleanArgs);
       const attrs = extractMessageAttributes(response);
 
       if (attrs.responseId) {

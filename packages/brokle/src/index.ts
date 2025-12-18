@@ -84,3 +84,45 @@ export {
 
 // Masking utilities (for PII protection)
 export { MaskingHelper } from './utils/masking';
+
+// Prompt Management
+export {
+  Prompt,
+  PromptManager,
+  PromptCache,
+  PromptError,
+  PromptNotFoundError,
+  PromptCompileError,
+  PromptFetchError,
+} from './prompt';
+export type {
+  PromptType,
+  MessageRole,
+  ChatMessage,
+  TextTemplate,
+  ChatTemplate,
+  Template,
+  ModelConfig,
+  PromptConfig,
+  PromptVersion,
+  PromptData,
+  GetPromptOptions,
+  ListPromptsOptions,
+  UpsertPromptRequest,
+  OpenAIMessage,
+  AnthropicMessage,
+  AnthropicRequest,
+  Variables,
+  Fallback,
+  TextFallback,
+  ChatFallback,
+} from './prompt';
+export type { PromptManagerConfig, CacheOptions } from './prompt';
+
+// Evaluations Management (stub for future functionality)
+export { EvaluationsManager } from './evaluations';
+export type { EvaluationsManagerConfig } from './evaluations';
+
+// Wrapper utilities (for SDK wrapper packages)
+export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
+export type { BrokleOptions } from './utils/wrappers';

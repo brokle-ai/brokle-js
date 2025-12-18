@@ -5,7 +5,7 @@
  * Supports traces, metrics, and logs export via OTLP (HTTP or gRPC).
  */
 
-import { type Span, type Tracer, type Attributes, SpanStatusCode, metrics } from '@opentelemetry/api';
+import { type Span, type Tracer, type Attributes, SpanStatusCode, metrics, trace } from '@opentelemetry/api';
 import { logs } from '@opentelemetry/api-logs';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { TraceIdRatioBasedSampler, AlwaysOnSampler } from '@opentelemetry/sdk-trace-base';
@@ -22,6 +22,8 @@ import { Attrs } from './types/attributes';
 import { createMeterProvider, GenAIMetrics } from './metrics';
 import { createLoggerProvider } from './logs';
 import { serializeWithMime, isChatMLFormat } from './utils/serializer';
+import { PromptManager, Prompt } from './prompt';
+import { EvaluationsManager } from './evaluations';
 
 // SDK version
 const VERSION = '0.1.4';
@@ -45,6 +47,8 @@ export class Brokle {
   private meterProvider: MeterProvider | null = null;
   private loggerProvider: LoggerProvider | null = null;
   private genAIMetrics: GenAIMetrics | null = null;
+  private promptManager: PromptManager | null = null;
+  private evaluationsManager: EvaluationsManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -171,6 +175,13 @@ export class Brokle {
    *   input: [{ role: 'user', content: 'Hello' }],
    *   output: [{ role: 'assistant', content: 'Hi!' }]
    * });
+   *
+   * // For prompt linking, use linkPrompt() or updateCurrentSpan() inside:
+   * await client.traced('llm-call', async (span) => {
+   *   const prompt = await client.prompts.get("greeting");
+   *   client.linkPrompt(prompt);  // Dynamic linking
+   *   // ...
+   * });
    * ```
    */
   async traced<T>(
@@ -266,6 +277,130 @@ export class Brokle {
   }
 
   /**
+   * Link a prompt to the current active span
+   *
+   * Use this to dynamically link a prompt to an existing span.
+   * Fallback prompts are NOT linked to prevent polluting analytics.
+   *
+   * @param prompt - Prompt to link
+   * @returns true if linked successfully, false if no active span or fallback prompt
+   *
+   * @example
+   * ```typescript
+   * const prompt = await client.prompts.get("greeting");
+   *
+   * // Inside any traced span
+   * await client.traced('my-operation', async (span) => {
+   *   client.linkPrompt(prompt);  // Links to this span
+   *   // ... do work
+   * });
+   * ```
+   */
+  linkPrompt(prompt: Prompt): boolean {
+    const span = trace.getActiveSpan();
+
+    if (!span) {
+      if (this.config.debug) {
+        console.log('[Brokle] No active span to link prompt');
+      }
+      return false;
+    }
+
+    if (prompt.isFallback) {
+      if (this.config.debug) {
+        console.log('[Brokle] Fallback prompts are not linked to traces');
+      }
+      return false;
+    }
+
+    span.setAttribute(Attrs.BROKLE_PROMPT_NAME, prompt.name);
+    span.setAttribute(Attrs.BROKLE_PROMPT_VERSION, prompt.version);
+
+    if (prompt.id && prompt.id !== 'fallback') {
+      span.setAttribute(Attrs.BROKLE_PROMPT_ID, prompt.id);
+    }
+
+    if (this.config.debug) {
+      console.log(`[Brokle] Linked prompt ${prompt.name} v${prompt.version} to span`);
+    }
+
+    return true;
+  }
+
+  /**
+   * Update the current active span with additional attributes
+   *
+   * Use this to dynamically update span attributes from within a traced block.
+   * Supports prompt linking, output, and metadata updates.
+   *
+   * @param options - Update options
+   * @returns true if updated successfully, false if no active span
+   *
+   * @example
+   * ```typescript
+   * // Inside a traced function, dynamically link a prompt
+   * await client.traced('my-operation', async (span) => {
+   *   const prompt = await client.prompts.get("assistant");
+   *   client.updateCurrentSpan({ prompt });
+   *   // ... do work
+   *   client.updateCurrentSpan({ output: "result", metadata: { status: "done" } });
+   * });
+   * ```
+   */
+  updateCurrentSpan(options: {
+    /** Prompt to link (fallback prompts are not linked) */
+    prompt?: Prompt;
+    /** Output value to set */
+    output?: unknown;
+    /** Metadata to set */
+    metadata?: Record<string, unknown>;
+  }): boolean {
+    const span = trace.getActiveSpan();
+
+    if (!span) {
+      if (this.config.debug) {
+        console.log('[Brokle] No active span to update');
+      }
+      return false;
+    }
+
+    // Link prompt if provided and NOT a fallback
+    if (options.prompt && !options.prompt.isFallback) {
+      span.setAttribute(Attrs.BROKLE_PROMPT_NAME, options.prompt.name);
+      span.setAttribute(Attrs.BROKLE_PROMPT_VERSION, options.prompt.version);
+      if (options.prompt.id && options.prompt.id !== 'fallback') {
+        span.setAttribute(Attrs.BROKLE_PROMPT_ID, options.prompt.id);
+      }
+    }
+
+    if (options.output !== undefined) {
+      if (isChatMLFormat(options.output)) {
+        span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(options.output));
+      } else {
+        const [outputStr, mimeType] = serializeWithMime(options.output);
+        span.setAttribute(Attrs.OUTPUT_VALUE, outputStr);
+        span.setAttribute(Attrs.OUTPUT_MIME_TYPE, mimeType);
+      }
+    }
+
+    if (options.metadata) {
+      span.setAttribute(Attrs.METADATA, JSON.stringify(options.metadata));
+    }
+
+    if (this.config.debug) {
+      console.log('[Brokle] Updated current span with:', Object.keys(options).join(', '));
+    }
+
+    return true;
+  }
+
+  /**
+   * Alias for updateCurrentSpan for convenience
+   * @see updateCurrentSpan
+   */
+  updateCurrentGeneration = this.updateCurrentSpan.bind(this);
+
+  /**
    * Get the OTEL tracer for manual span control
    * Required for integrations like LangChain callbacks
    *
@@ -309,6 +444,51 @@ export class Brokle {
    */
   getMetrics(): GenAIMetrics | null {
     return this.genAIMetrics;
+  }
+
+  /**
+   * Get the Prompt manager for prompt management
+   *
+   * @returns PromptManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * const prompt = await client.prompts.get("greeting", { label: "production" });
+   * const messages = prompt.toOpenAIMessages({ name: "Alice" });
+   * ```
+   */
+  get prompts(): PromptManager {
+    if (!this.promptManager) {
+      this.promptManager = new PromptManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.promptManager;
+  }
+
+  /**
+   * Get the Evaluations manager for evaluation and scoring operations
+   *
+   * @returns EvaluationsManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * // Future functionality:
+   * // const result = await client.evaluations.run(traceId, 'accuracy');
+   * // const score = await client.evaluations.score(spanId, 'relevance', 0.95);
+   * ```
+   */
+  get evaluations(): EvaluationsManager {
+    if (!this.evaluationsManager) {
+      this.evaluationsManager = new EvaluationsManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.evaluationsManager;
   }
 
   /**
