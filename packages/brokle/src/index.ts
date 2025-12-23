@@ -119,9 +119,21 @@ export type {
 } from './prompt';
 export type { PromptManagerConfig, CacheOptions } from './prompt';
 
-// Evaluations Management (stub for future functionality)
-export { EvaluationsManager } from './evaluations';
-export type { EvaluationsManagerConfig } from './evaluations';
+// Evaluations Management
+export { EvaluationsManager, ScoreType, ScoreSource, EvaluationError, ScoreError, ScorerError } from './evaluations';
+export type {
+  EvaluationsManagerConfig,
+  ScoreResult,
+  ScoreValue,
+  Scorer,
+  ScorerArgs,
+  ScoreOptions,
+  BatchScoreOptions,
+  ScoreResponse,
+} from './evaluations';
+
+// Scorers (re-export for convenience - also available via 'brokle/scorers')
+export { ExactMatch, Contains, RegexMatch, JSONValid, LengthCheck, scorer, multiScorer } from './scorers';
 
 // Wrapper utilities (for SDK wrapper packages)
 export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
