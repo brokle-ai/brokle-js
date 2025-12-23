@@ -149,6 +149,20 @@ export type {
 // Scorers (re-export for convenience - also available via 'brokle/scorers')
 export { ExactMatch, Contains, RegexMatch, JSONValid, LengthCheck, scorer, multiScorer } from './scorers';
 
+// Experiments Management (new namespace)
+export { ExperimentsManager, EvaluationError, TaskError, ScorerExecutionError } from './experiments';
+export type {
+  ExperimentsManagerConfig,
+  Experiment,
+  EvaluationResults,
+  EvaluationItem,
+  SummaryStats,
+  RunOptions,
+  ListExperimentsOptions,
+  TaskFunction,
+  ProgressCallback,
+} from './experiments';
+
 // Wrapper utilities (for SDK wrapper packages)
 export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
 export type { BrokleOptions } from './utils/wrappers';

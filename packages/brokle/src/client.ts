@@ -25,6 +25,7 @@ import { serializeWithMime, isChatMLFormat } from './utils/serializer';
 import { PromptManager, Prompt } from './prompt';
 import { DatasetsManager } from './datasets';
 import { ScoresManager } from './scores';
+import { ExperimentsManager } from './experiments';
 
 const VERSION = '0.1.4';
 
@@ -50,6 +51,7 @@ export class Brokle {
   private promptManager: PromptManager | null = null;
   private datasetsManager: DatasetsManager | null = null;
   private scoresManager: ScoresManager | null = null;
+  private experimentsManager: ExperimentsManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -539,6 +541,45 @@ export class Brokle {
       });
     }
     return this.scoresManager;
+  }
+
+  /**
+   * Access experiments operations.
+   *
+   * Returns an ExperimentsManager for running evaluation experiments.
+   *
+   * @example
+   * ```typescript
+   * import { ExactMatch } from 'brokle/scorers';
+   *
+   * const results = await client.experiments.run({
+   *   name: "gpt4-test",
+   *   dataset,
+   *   task: myTask,
+   *   scorers: [ExactMatch()],
+   * });
+   *
+   * // View results
+   * for (const [name, stats] of Object.entries(results.summary)) {
+   *   console.log(`${name}: mean=${stats.mean.toFixed(3)}`);
+   * }
+   *
+   * // Get experiment by ID
+   * const exp = await client.experiments.get("01HXYZ...");
+   *
+   * // List experiments
+   * const experiments = await client.experiments.list();
+   * ```
+   */
+  get experiments(): ExperimentsManager {
+    if (!this.experimentsManager) {
+      this.experimentsManager = new ExperimentsManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.experimentsManager;
   }
 
   /**
