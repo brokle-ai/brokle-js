@@ -20,8 +20,8 @@
  * ```
  */
 
-import type { ScoreResult, ScoreValue, Scorer, ScorerArgs } from '../evaluations/types';
-import { ScoreType } from '../evaluations/types';
+import type { ScoreResult, ScoreValue, Scorer, ScorerArgs } from '../scores/types';
+import { ScoreType } from '../scores/types';
 
 /**
  * Scorer function type that can return various types
@@ -68,7 +68,7 @@ export type MultiScorerFunction = (args: ScorerArgs) => ScoreResult[] | Promise<
  * }));
  *
  * // Usage
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   scorer: similarity,
  *   output: "result",
@@ -140,7 +140,7 @@ export function scorer(name: string, fn: ScorerFunction): Scorer {
  * });
  *
  * // Returns array of responses
- * const results = await client.evaluations.score({
+ * const results = await client.scores.submit({
  *   traceId: "abc123",
  *   scorer: qualityMetrics,
  *   output: "The answer is 42",

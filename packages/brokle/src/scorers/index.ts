@@ -20,7 +20,7 @@
  *
  * // Built-in scorer
  * const exact = ExactMatch({ name: "answer_match" });
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   scorer: exact,
  *   output: "Paris",
@@ -51,5 +51,5 @@ export { scorer, multiScorer } from './decorator';
 export type { ScorerFunction, MultiScorerFunction } from './decorator';
 
 // Re-export types for convenience in custom scorers
-export type { ScoreResult, ScoreValue, Scorer, ScorerArgs } from '../evaluations/types';
-export { ScoreType } from '../evaluations/types';
+export type { ScoreResult, ScoreValue, Scorer, ScorerArgs } from '../scores/types';
+export { ScoreType } from '../scores/types';

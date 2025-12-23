@@ -1,12 +1,13 @@
 /**
- * Evaluations Manager
+ * Scores Manager
  *
- * Manager for running evaluations and submitting quality scores.
- * Supports both direct scoring and scorer function execution.
+ * Manager for submitting quality scores to traces and spans.
+ * Follows Stripe/OpenAI namespace pattern: client.scores.submit()
  */
 
 import type {
-  ScoreOptions,
+  ScoresManagerConfig,
+  SubmitScoreOptions,
   BatchScoreOptions,
   ScoreRequest,
   ScoreResponse,
@@ -19,26 +20,14 @@ import { ScoreType, ScoreSource } from './types';
 import { ScoreError } from './errors';
 
 /**
- * Configuration for the evaluations manager
- */
-export interface EvaluationsManagerConfig {
-  /** Base URL for the API */
-  baseUrl: string;
-  /** API key for authentication */
-  apiKey: string;
-  /** Enable debug logging */
-  debug?: boolean;
-}
-
-/**
- * Evaluations API manager
+ * Scores API manager
  *
- * Provides methods for submitting scores and running evaluations.
+ * Provides methods for submitting scores to traces and spans.
  *
  * @example
  * ```typescript
  * // Direct score submission
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   name: "accuracy",
  *   value: 0.95,
@@ -46,37 +35,37 @@ export interface EvaluationsManagerConfig {
  *
  * // Using a scorer function
  * const exact = ExactMatch({ name: "answer_match" });
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   scorer: exact,
  *   output: "Paris",
  *   expected: "Paris",
  * });
+ *
+ * // Batch submission
+ * await client.scores.batch([
+ *   { traceId: "abc", name: "quality", value: 0.9 },
+ *   { traceId: "def", name: "quality", value: 0.8 },
+ * ]);
  * ```
  */
-export class EvaluationsManager {
+export class ScoresManager {
   private baseUrl: string;
   private apiKey: string;
   private debug: boolean;
 
-  constructor(config: EvaluationsManagerConfig) {
+  constructor(config: ScoresManagerConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.apiKey = config.apiKey;
     this.debug = config.debug ?? false;
   }
 
-  /**
-   * Log debug messages
-   */
   private log(message: string, ...args: unknown[]): void {
     if (this.debug) {
-      console.log(`[Brokle EvaluationsManager] ${message}`, ...args);
+      console.log(`[Brokle ScoresManager] ${message}`, ...args);
     }
   }
 
-  /**
-   * Make an HTTP POST request
-   */
   private async httpPost<T>(path: string, body: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
@@ -115,7 +104,7 @@ export class EvaluationsManager {
   }
 
   /**
-   * Score a trace or span.
+   * Submit a score to a trace or span.
    *
    * Two modes:
    * 1. With scorer: Pass scorer function + output/expected
@@ -127,7 +116,7 @@ export class EvaluationsManager {
    * @example
    * ```typescript
    * // Direct score
-   * await client.evaluations.score({
+   * await client.scores.submit({
    *   traceId: "abc123",
    *   name: "quality",
    *   value: 0.9,
@@ -137,7 +126,7 @@ export class EvaluationsManager {
    *
    * // Using scorer function
    * const exact = ExactMatch({ name: "answer_match" });
-   * await client.evaluations.score({
+   * await client.scores.submit({
    *   traceId: "abc123",
    *   scorer: exact,
    *   output: "Paris",
@@ -145,7 +134,7 @@ export class EvaluationsManager {
    * });
    * ```
    */
-  async score(options: ScoreOptions): Promise<ScoreResponse | ScoreResponse[]> {
+  async submit(options: SubmitScoreOptions): Promise<ScoreResponse | ScoreResponse[]> {
     const {
       traceId,
       spanId,
@@ -159,7 +148,7 @@ export class EvaluationsManager {
     } = options;
 
     if (scorer) {
-      return this.scoreWithScorer(options);
+      return this.submitWithScorer(options);
     }
 
     if (!name || value === undefined) {
@@ -179,21 +168,21 @@ export class EvaluationsManager {
   }
 
   /**
-   * Submit multiple scores in a batch
+   * Submit multiple scores in a batch.
    *
    * @param scores - Array of score options
    * @returns Array of score responses
    *
    * @example
    * ```typescript
-   * await client.evaluations.scoreBatch([
+   * await client.scores.batch([
    *   { traceId: "abc123", name: "accuracy", value: 0.9 },
    *   { traceId: "abc123", name: "fluency", value: 0.85 },
    *   { traceId: "def456", name: "relevance", value: 0.95 },
    * ]);
    * ```
    */
-  async scoreBatch(scores: BatchScoreOptions[]): Promise<ScoreResponse[]> {
+  async batch(scores: BatchScoreOptions[]): Promise<ScoreResponse[]> {
     const requests: ScoreRequest[] = scores.map((s) => ({
       trace_id: s.traceId,
       name: s.name,
@@ -219,7 +208,7 @@ export class EvaluationsManager {
   /**
    * Execute scorer function and submit results
    */
-  private async scoreWithScorer(options: ScoreOptions): Promise<ScoreResponse | ScoreResponse[]> {
+  private async submitWithScorer(options: SubmitScoreOptions): Promise<ScoreResponse | ScoreResponse[]> {
     const {
       traceId,
       spanId,
@@ -253,7 +242,7 @@ export class EvaluationsManager {
         source,
         span_id: spanId,
         reason: `Scorer failed: ${errorMessage}`,
-        metadata: { ...metadata, scoringFailed: true, error: errorMessage },
+        metadata: { ...(metadata ?? {}), scoringFailed: true, error: errorMessage },
       });
     }
 
@@ -326,25 +315,11 @@ export class EvaluationsManager {
     );
   }
 
-  /**
-   * Submit a single score to the API
-   */
   private async submitScore(request: ScoreRequest): Promise<ScoreResponse> {
     this.log('Submitting score', { name: request.name, value: request.value });
 
     const rawResponse = await this.httpPost<APIResponse<ScoreResponse>>('/v1/scores', request);
 
     return this.unwrapResponse(rawResponse);
-  }
-
-  /**
-   * @deprecated Use score() instead
-   * Legacy method for backwards compatibility
-   */
-  async run(_traceId: string, _evaluator: string): Promise<never> {
-    throw new Error(
-      'run() is deprecated. Use score() with a scorer function instead. ' +
-        'Example: client.evaluations.score({ traceId, scorer: MyScorer(), output, expected })'
-    );
   }
 }

@@ -11,7 +11,7 @@
  * const contains = Contains({ name: "has_keyword" });
  * const jsonCheck = JSONValid();
  *
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   scorer: exact,
  *   output: "Paris",
@@ -20,8 +20,8 @@
  * ```
  */
 
-import type { ScoreResult, Scorer, ScorerArgs } from '../evaluations/types';
-import { ScoreType } from '../evaluations/types';
+import type { ScoreResult, Scorer, ScorerArgs } from '../scores/types';
+import { ScoreType } from '../scores/types';
 
 /**
  * Options for ExactMatch scorer

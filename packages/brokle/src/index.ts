@@ -119,18 +119,32 @@ export type {
 } from './prompt';
 export type { PromptManagerConfig, CacheOptions } from './prompt';
 
-// Evaluations Management
-export { EvaluationsManager, ScoreType, ScoreSource, EvaluationError, ScoreError, ScorerError } from './evaluations';
+// Datasets Management (new namespace)
+export { DatasetsManager, Dataset, DatasetError } from './datasets';
 export type {
-  EvaluationsManagerConfig,
+  DatasetsManagerConfig,
+  DatasetItem,
+  DatasetItemInput,
+  DatasetData,
+  DatasetConfig,
+  CreateDatasetOptions,
+  GetItemsOptions,
+  ListDatasetsOptions,
+} from './datasets';
+
+// Scores Management (new namespace)
+export { ScoresManager, ScoreType, ScoreSource, ScoreError, ScorerError } from './scores';
+export type {
+  ScoresManagerConfig,
   ScoreResult,
   ScoreValue,
   Scorer,
   ScorerArgs,
-  ScoreOptions,
+  SubmitScoreOptions,
   BatchScoreOptions,
+  ScoreRequest,
   ScoreResponse,
-} from './evaluations';
+} from './scores';
 
 // Scorers (re-export for convenience - also available via 'brokle/scorers')
 export { ExactMatch, Contains, RegexMatch, JSONValid, LengthCheck, scorer, multiScorer } from './scorers';

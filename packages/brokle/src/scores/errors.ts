@@ -1,26 +1,13 @@
 /**
- * Evaluation Error Classes
+ * Score Error Classes
  *
- * Hierarchical error system for evaluation operations.
+ * Error hierarchy for score operations.
  */
 
 /**
- * Base evaluation error
+ * Base error for score operations
  */
-export class EvaluationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'EvaluationError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, EvaluationError);
-    }
-  }
-}
-
-/**
- * Error submitting score to API
- */
-export class ScoreError extends EvaluationError {
+export class ScoreError extends Error {
   public readonly statusCode?: number;
 
   constructor(message: string, statusCode?: number) {
@@ -36,7 +23,7 @@ export class ScoreError extends EvaluationError {
 /**
  * Error executing scorer function
  */
-export class ScorerError extends EvaluationError {
+export class ScorerError extends Error {
   public readonly scorerName: string;
   public readonly cause?: Error;
 

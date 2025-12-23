@@ -1,5 +1,5 @@
 /**
- * Evaluations Type Definitions
+ * Scores Type Definitions
  *
  * Core types for the scoring and evaluation system.
  */
@@ -71,9 +71,9 @@ export interface Scorer {
 }
 
 /**
- * Options for the score() method
+ * Options for the submit() method
  */
-export interface ScoreOptions {
+export interface SubmitScoreOptions {
   /** Trace ID to associate the score with */
   traceId: string;
   /** Optional span ID for span-level scores */
@@ -146,6 +146,18 @@ export interface ScoreResponse {
   type: string;
   source: string;
   created_at: string;
+}
+
+/**
+ * Configuration for the scores manager
+ */
+export interface ScoresManagerConfig {
+  /** Base URL for the API */
+  baseUrl: string;
+  /** API key for authentication */
+  apiKey: string;
+  /** Enable debug logging */
+  debug?: boolean;
 }
 
 /**

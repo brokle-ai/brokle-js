@@ -1,7 +1,8 @@
 /**
- * Evaluations Module
+ * Scores Module
  *
- * Manager for running evaluations and submitting quality scores.
+ * Manager for submitting quality scores to traces and spans.
+ * Follows Stripe/OpenAI namespace pattern: client.scores.submit()
  *
  * @example
  * ```typescript
@@ -11,7 +12,7 @@
  * const client = getClient();
  *
  * // Direct score submission
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   name: "quality",
  *   value: 0.9,
@@ -20,20 +21,26 @@
  *
  * // Using a scorer function
  * const exact = ExactMatch({ name: "answer_match" });
- * await client.evaluations.score({
+ * await client.scores.submit({
  *   traceId: "abc123",
  *   scorer: exact,
  *   output: "Paris",
  *   expected: "Paris",
  * });
+ *
+ * // Batch submission
+ * await client.scores.batch([
+ *   { traceId: "abc", name: "quality", value: 0.9 },
+ *   { traceId: "def", name: "quality", value: 0.8 },
+ * ]);
  * ```
  *
  * @packageDocumentation
  */
 
 // Manager
-export { EvaluationsManager } from './manager';
-export type { EvaluationsManagerConfig } from './manager';
+export { ScoresManager } from './manager';
+export type { ScoresManagerConfig } from './types';
 
 // Types
 export { ScoreType, ScoreSource } from './types';
@@ -42,11 +49,12 @@ export type {
   ScoreValue,
   Scorer,
   ScorerArgs,
-  ScoreOptions,
+  SubmitScoreOptions,
   BatchScoreOptions,
   ScoreRequest,
   ScoreResponse,
+  APIResponse,
 } from './types';
 
 // Errors
-export { EvaluationError, ScoreError, ScorerError } from './errors';
+export { ScoreError, ScorerError } from './errors';

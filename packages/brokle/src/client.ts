@@ -23,9 +23,9 @@ import { createMeterProvider, GenAIMetrics } from './metrics';
 import { createLoggerProvider } from './logs';
 import { serializeWithMime, isChatMLFormat } from './utils/serializer';
 import { PromptManager, Prompt } from './prompt';
-import { EvaluationsManager } from './evaluations';
+import { DatasetsManager } from './datasets';
+import { ScoresManager } from './scores';
 
-// SDK version
 const VERSION = '0.1.4';
 
 /**
@@ -48,7 +48,8 @@ export class Brokle {
   private loggerProvider: LoggerProvider | null = null;
   private genAIMetrics: GenAIMetrics | null = null;
   private promptManager: PromptManager | null = null;
-  private evaluationsManager: EvaluationsManager | null = null;
+  private datasetsManager: DatasetsManager | null = null;
+  private scoresManager: ScoresManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -469,26 +470,75 @@ export class Brokle {
   }
 
   /**
-   * Get the Evaluations manager for evaluation and scoring operations
+   * Get the Datasets manager for dataset management
    *
-   * @returns EvaluationsManager instance (lazily initialized)
+   * @returns DatasetsManager instance (lazily initialized)
    *
    * @example
    * ```typescript
-   * // Future functionality:
-   * // const result = await client.evaluations.run(traceId, 'accuracy');
-   * // const score = await client.evaluations.score(spanId, 'relevance', 0.95);
+   * // Create a dataset
+   * const dataset = await client.datasets.create({
+   *   name: "qa-pairs",
+   *   description: "Question-answer test cases"
+   * });
+   *
+   * // Get existing dataset
+   * const existing = await client.datasets.get("01HXYZ...");
+   *
+   * // List datasets
+   * const datasets = await client.datasets.list();
    * ```
    */
-  get evaluations(): EvaluationsManager {
-    if (!this.evaluationsManager) {
-      this.evaluationsManager = new EvaluationsManager({
+  get datasets(): DatasetsManager {
+    if (!this.datasetsManager) {
+      this.datasetsManager = new DatasetsManager({
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
         debug: this.config.debug,
       });
     }
-    return this.evaluationsManager;
+    return this.datasetsManager;
+  }
+
+  /**
+   * Get the Scores manager for score submission
+   *
+   * @returns ScoresManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * // Direct score submission
+   * await client.scores.submit({
+   *   traceId: "abc123",
+   *   name: "accuracy",
+   *   value: 0.95,
+   * });
+   *
+   * // Using a scorer function
+   * const exact = ExactMatch({ name: "answer_match" });
+   * await client.scores.submit({
+   *   traceId: "abc123",
+   *   scorer: exact,
+   *   output: "Paris",
+   *   expected: "Paris",
+   * });
+   *
+   * // Batch submission
+   * await client.scores.batch([
+   *   { traceId: "abc", name: "quality", value: 0.9 },
+   *   { traceId: "def", name: "quality", value: 0.8 },
+   * ]);
+   * ```
+   */
+  get scores(): ScoresManager {
+    if (!this.scoresManager) {
+      this.scoresManager = new ScoresManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.scoresManager;
   }
 
   /**
