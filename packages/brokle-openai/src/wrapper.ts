@@ -47,6 +47,10 @@ export type { BrokleOptions };
 export function wrapOpenAI<T extends OpenAI>(client: T): T {
   const brokleClient = getClient();
 
+  if (!brokleClient.getConfig().enabled) {
+    return client;
+  }
+
   return createProxy(client, brokleClient, []);
 }
 

@@ -41,10 +41,11 @@ const VERSION = '0.1.4';
  * - Symbol-based singleton
  * - No process exit handlers (explicit shutdown)
  * - Helper methods for common patterns
+ * - Master switch: set enabled=false to disable SDK completely (no-op)
  */
 export class Brokle {
   private config: BrokleConfig;
-  private provider: NodeTracerProvider;
+  private provider: NodeTracerProvider | null = null;
   private tracer: Tracer;
   private meterProvider: MeterProvider | null = null;
   private loggerProvider: LoggerProvider | null = null;
@@ -63,6 +64,16 @@ export class Brokle {
   constructor(configInput?: BrokleConfigInput) {
     const input = configInput || loadFromEnv();
     this.config = validateConfig(input);
+
+    // Master switch: if disabled, create no-op client
+    if (!this.config.enabled) {
+      if (this.config.debug) {
+        console.log('[Brokle] SDK disabled via enabled=false, using no-op tracer');
+      }
+      // Use global no-op tracer (doesn't create any resources)
+      this.tracer = trace.getTracer('brokle-disabled');
+      return;
+    }
 
     if (this.config.debug) {
       console.log('[Brokle] Initializing SDK with config:', {
@@ -199,6 +210,16 @@ export class Brokle {
       output?: unknown;
     }
   ): Promise<T> {
+    if (!this.config.enabled) {
+      return await this.tracer.startActiveSpan(name, async (span) => {
+        try {
+          return await fn(span);
+        } finally {
+          span.end();
+        }
+      });
+    }
+
     const attrs = { ...(attributes ?? {}) };
 
     if (options?.version) {
@@ -418,10 +439,19 @@ export class Brokle {
   /**
    * Get the TracerProvider for advanced use cases
    *
-   * @returns NodeTracerProvider instance
+   * @returns NodeTracerProvider instance or null if SDK disabled
    */
-  getProvider(): NodeTracerProvider {
+  getProvider(): NodeTracerProvider | null {
     return this.provider;
+  }
+
+  /**
+   * Get the current configuration
+   *
+   * @returns BrokleConfig instance
+   */
+  getConfig(): BrokleConfig {
+    return this.config;
   }
 
   /**
@@ -637,6 +667,10 @@ export class Brokle {
    * ```
    */
   async flush(): Promise<void> {
+    if (!this.config.enabled || !this.provider) {
+      return;
+    }
+
     if (this.config.debug) {
       console.log('[Brokle] Flushing pending telemetry...');
     }
@@ -667,6 +701,10 @@ export class Brokle {
    * ```
    */
   async shutdown(): Promise<void> {
+    if (!this.config.enabled || !this.provider) {
+      return;
+    }
+
     if (this.config.debug) {
       console.log('[Brokle] Shutting down SDK...');
     }
@@ -712,6 +750,11 @@ export class Brokle {
   static async createAsync(configInput?: BrokleConfigInput): Promise<Brokle> {
     const input = configInput || loadFromEnv();
     const config = validateConfig(input);
+
+    // Master switch: delegate to sync constructor which handles no-op
+    if (!config.enabled) {
+      return new Brokle(configInput);
+    }
 
     if (config.transport !== TransportType.GRPC) {
       return new Brokle(configInput);
@@ -843,6 +886,9 @@ function getGlobalState(): BrokleGlobalState {
  *
  * // Subsequent calls return the same instance
  * const sameClient = getClient(); // No config needed
+ *
+ * // Disable SDK completely
+ * const disabledClient = getClient({ enabled: false });
  * ```
  */
 export function getClient(config?: BrokleConfigInput): Brokle {
@@ -851,7 +897,9 @@ export function getClient(config?: BrokleConfigInput): Brokle {
   if (!state.client) {
     const clientConfig = config || loadFromEnv();
     state.client = new Brokle(clientConfig);
-    state.provider = state.client.getProvider();
+    if (state.client.getConfig().enabled) {
+      state.provider = state.client.getProvider();
+    }
   }
 
   return state.client;

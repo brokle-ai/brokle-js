@@ -9,7 +9,9 @@ import type { TransportType } from '../transport/types';
  */
 export interface BrokleConfigInput {
   /** Brokle API key (format: bk_{40_char_random}) */
-  apiKey: string;
+  apiKey?: string;
+  /** Master switch: if false, SDK is completely disabled (no resources, no-op everything) */
+  enabled?: boolean;
   /** Base URL for Brokle API (default: http://localhost:8080) */
   baseUrl?: string;
   /** Environment tag (e.g., 'production', 'staging', 'development') */
@@ -66,6 +68,8 @@ export interface BrokleConfigInput {
  * Fully resolved configuration with all defaults applied
  */
 export interface BrokleConfig {
+  /** Master switch: if false, SDK is completely disabled */
+  enabled: boolean;
   apiKey: string;
   baseUrl: string;
   environment: string;
@@ -91,6 +95,7 @@ export interface BrokleConfig {
  * Default configuration values
  */
 export const DEFAULT_CONFIG: Omit<BrokleConfig, 'apiKey'> = {
+  enabled: true,
   baseUrl: 'http://localhost:8080',
   environment: 'default',
   debug: false,

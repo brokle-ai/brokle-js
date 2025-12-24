@@ -70,6 +70,11 @@ export function observe(options: ObserveOptions = {}) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (this: any, ...args: any[]) {
       const client = getClient();
+
+      if (!client.getConfig().enabled) {
+        return await originalMethod.apply(this, args);
+      }
+
       const tracer = client.getTracer();
       const spanName = options.name || propertyKey;
 
@@ -174,6 +179,11 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (async (...args: any[]) => {
     const client = getClient();
+
+    if (!client.getConfig().enabled) {
+      return await fn(...args);
+    }
+
     const tracer = client.getTracer();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
