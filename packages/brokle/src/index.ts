@@ -161,7 +161,22 @@ export type {
   ListExperimentsOptions,
   TaskFunction,
   ProgressCallback,
+  SpanExtractInput,
+  SpanExtractOutput,
+  SpanExtractExpected,
 } from './experiments';
+
+// Query Management (span queries for THE WEDGE)
+export { QueryManager, QueryError, QueryAPIError, InvalidFilterError } from './query';
+export type {
+  QueryManagerConfig,
+  QueryOptions,
+  QueryResult,
+  QueriedSpan,
+  ValidationResult,
+  TokenUsage,
+  SpanEvent,
+} from './query';
 
 // Wrapper utilities (for SDK wrapper packages)
 export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';

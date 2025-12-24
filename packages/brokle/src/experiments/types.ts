@@ -6,6 +6,22 @@
 
 import type { ScoreResult, Scorer } from '../scores/types';
 import type { Dataset } from '../datasets';
+import type { QueriedSpan } from '../query';
+
+/**
+ * Function to extract input from a queried span
+ */
+export type SpanExtractInput = (span: QueriedSpan) => Record<string, unknown>;
+
+/**
+ * Function to extract output from a queried span
+ */
+export type SpanExtractOutput = (span: QueriedSpan) => unknown;
+
+/**
+ * Function to extract expected output from a queried span
+ */
+export type SpanExtractExpected = (span: QueriedSpan) => unknown;
 
 /**
  * Experiment metadata (for list/get operations)
@@ -31,11 +47,13 @@ export interface Experiment {
  * Single evaluation item result
  */
 export interface EvaluationItem {
-  /** ID of the dataset item evaluated */
-  datasetItemId: string;
-  /** Input data passed to task */
+  /** ID of the dataset item evaluated (for dataset-based evaluation) */
+  datasetItemId?: string;
+  /** ID of the span evaluated (for span-based evaluation) */
+  spanId?: string;
+  /** Input data passed to task or extracted from span */
   input: Record<string, unknown>;
-  /** Output from the task function */
+  /** Output from the task function or extracted from span */
   output: unknown;
   /** Expected output for comparison */
   expected?: unknown;
@@ -43,7 +61,7 @@ export interface EvaluationItem {
   scores: ScoreResult[];
   /** Trial number (when trial_count > 1) */
   trialNumber: number;
-  /** Error message if task failed */
+  /** Error message if task/extraction failed */
   error?: string;
 }
 
@@ -73,8 +91,10 @@ export interface EvaluationResults {
   experimentId: string;
   /** Experiment name */
   experimentName: string;
-  /** Dataset ID used */
-  datasetId: string;
+  /** Dataset ID used (for dataset-based evaluation) */
+  datasetId?: string;
+  /** Source type: 'dataset' or 'spans' */
+  source: 'dataset' | 'spans';
   /** Dashboard URL for the experiment */
   url?: string;
   /** Per-scorer summary statistics */
@@ -95,19 +115,45 @@ export type ProgressCallback = (completed: number, total: number) => void;
 
 /**
  * Options for running an experiment
+ *
+ * You can run evaluations in two modes:
+ *
+ * **Dataset-based** (traditional):
+ * - Provide `dataset` and `task`
+ * - Task function is called for each dataset item
+ * - Scorers evaluate task outputs
+ *
+ * **Span-based** (THE WEDGE):
+ * - Provide `spans`, `extractInput`, and `extractOutput`
+ * - No task execution - spans already contain outputs
+ * - Scorers evaluate extracted data from production spans
  */
 export interface RunOptions {
   /** Experiment name */
   name: string;
-  /** Dataset or dataset ID */
-  dataset: Dataset | string;
-  /** Task function to evaluate */
-  task: TaskFunction;
+
+  // === Dataset-based evaluation ===
+  /** Dataset or dataset ID (required for dataset-based, mutually exclusive with spans) */
+  dataset?: Dataset | string;
+  /** Task function to evaluate (required for dataset-based) */
+  task?: TaskFunction;
+
+  // === Span-based evaluation (THE WEDGE) ===
+  /** Queried spans to evaluate (required for span-based, mutually exclusive with dataset) */
+  spans?: QueriedSpan[];
+  /** Function to extract input from span (required when using spans) */
+  extractInput?: SpanExtractInput;
+  /** Function to extract output from span (required when using spans) */
+  extractOutput?: SpanExtractOutput;
+  /** Function to extract expected output from span (optional) */
+  extractExpected?: SpanExtractExpected;
+
+  // === Common options ===
   /** Scorers to apply */
   scorers: Scorer[];
   /** Maximum concurrent evaluations (default: 10) */
   maxConcurrency?: number;
-  /** Number of trials per item for variance measurement (default: 1) */
+  /** Number of trials per item for variance measurement (default: 1, only for dataset-based) */
   trialCount?: number;
   /** Additional metadata for the experiment */
   metadata?: Record<string, unknown>;

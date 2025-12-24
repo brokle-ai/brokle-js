@@ -1,7 +1,7 @@
 /**
  * Experiments Manager
  *
- * Manager for running evaluation experiments against datasets.
+ * Manager for running evaluation experiments against datasets or production spans.
  */
 
 import type { ScoreResult, Scorer, ScorerArgs } from '../scores/types';
@@ -10,6 +10,7 @@ import type { Dataset } from '../datasets';
 import type { DatasetItem } from '../datasets/types';
 import { DatasetsManager } from '../datasets/manager';
 import { EvaluationError } from './errors';
+import type { QueriedSpan } from '../query';
 import type {
   ExperimentsManagerConfig,
   RunOptions,
@@ -285,14 +286,17 @@ export class ExperimentsManager {
   /**
    * Run an evaluation experiment.
    *
-   * Executes the task function on each dataset item and applies scorers
-   * to evaluate the outputs.
+   * Supports two modes:
+   * - **Dataset-based**: Provide `dataset` and `task` to run task on each item
+   * - **Span-based** (THE WEDGE): Provide `spans`, `extractInput`, `extractOutput`
+   *   to evaluate existing production telemetry
    *
    * @param options - Experiment options
    * @returns Evaluation results with summary statistics
    *
    * @example
    * ```typescript
+   * // Dataset-based evaluation
    * const results = await client.experiments.run({
    *   name: "my-evaluation",
    *   dataset,
@@ -300,10 +304,223 @@ export class ExperimentsManager {
    *   scorers: [ExactMatch(), Contains()],
    * });
    *
+   * // Span-based evaluation (THE WEDGE)
+   * const spanResults = await client.experiments.run({
+   *   name: "retrospective-analysis",
+   *   spans: queryResult.spans,
+   *   extractInput: (span) => ({ prompt: span.input }),
+   *   extractOutput: (span) => span.output,
+   *   scorers: [Relevance()],
+   * });
+   *
    * console.log(results.summary);
    * ```
    */
   async run(options: RunOptions): Promise<EvaluationResults> {
+    // Validate: dataset XOR spans
+    if (options.dataset && options.spans) {
+      throw new EvaluationError('Cannot specify both dataset and spans - choose one mode');
+    }
+
+    if (!options.dataset && !options.spans) {
+      throw new EvaluationError('Must specify either dataset or spans');
+    }
+
+    // Span-based validation
+    if (options.spans) {
+      if (!options.extractInput) {
+        throw new EvaluationError('extractInput is required when using spans');
+      }
+      if (!options.extractOutput) {
+        throw new EvaluationError('extractOutput is required when using spans');
+      }
+      return this.runSpanBased(options);
+    }
+
+    // Dataset-based validation
+    if (!options.task) {
+      throw new EvaluationError('task is required when using dataset');
+    }
+
+    return this.runDatasetBased(options);
+  }
+
+  /**
+   * Run span-based evaluation (THE WEDGE)
+   *
+   * Evaluates production spans without re-executing tasks.
+   */
+  private async runSpanBased(options: RunOptions): Promise<EvaluationResults> {
+    const {
+      name,
+      spans,
+      extractInput,
+      extractOutput,
+      extractExpected,
+      scorers,
+      maxConcurrency = 10,
+      metadata,
+      onProgress,
+    } = options;
+
+    if (!spans || !extractInput || !extractOutput) {
+      throw new EvaluationError('spans, extractInput, and extractOutput are required');
+    }
+
+    this.log('Starting span-based experiment', { name, spanCount: spans.length, maxConcurrency });
+
+    if (spans.length === 0) {
+      this.log('Empty spans, returning empty results');
+      return {
+        experimentId: '',
+        experimentName: name,
+        source: 'spans',
+        summary: {},
+        items: [],
+      };
+    }
+
+    // Create experiment via API (without dataset_id for span-based)
+    const createResponse = await this.httpPost<APIResponse<ExperimentData>>(
+      '/v1/experiments',
+      {
+        name,
+        metadata: {
+          ...metadata,
+          source: 'spans',
+          span_count: spans.length,
+        },
+      }
+    );
+    const experimentData = this.unwrapResponse(createResponse);
+    const experimentId = experimentData.id;
+
+    this.log('Created experiment', { experimentId });
+
+    const totalItems = spans.length;
+    let completedItems = 0;
+    const evaluationItems: EvaluationItem[] = [];
+
+    // Process span
+    const processSpan = async (span: QueriedSpan): Promise<EvaluationItem> => {
+      let input: Record<string, unknown>;
+      let output: unknown;
+      let expected: unknown;
+      let extractionError: string | undefined;
+
+      // Extract input, output, expected
+      try {
+        input = extractInput(span);
+        output = extractOutput(span);
+        expected = extractExpected ? extractExpected(span) : undefined;
+      } catch (error) {
+        extractionError = error instanceof Error ? error.message : String(error);
+        completedItems++;
+        if (onProgress) {
+          onProgress(completedItems, totalItems);
+        }
+
+        return {
+          spanId: span.spanId,
+          input: {},
+          output: null,
+          scores: [],
+          trialNumber: 1,
+          error: `Extraction failed: ${extractionError}`,
+        };
+      }
+
+      // Run scorers
+      const scorerArgs: ScorerArgs = {
+        output,
+        expected,
+        input,
+      };
+
+      const allScores: ScoreResult[] = [];
+      for (const scorer of scorers) {
+        const results = await runScorerSafe(scorer, scorerArgs);
+        allScores.push(...results);
+      }
+
+      completedItems++;
+      if (onProgress) {
+        onProgress(completedItems, totalItems);
+      }
+
+      return {
+        spanId: span.spanId,
+        input,
+        output,
+        expected,
+        scores: allScores,
+        trialNumber: 1,
+      };
+    };
+
+    // Execute with concurrency limit
+    const executing: Promise<void>[] = [];
+    for (const span of spans) {
+      const p = processSpan(span).then((result) => {
+        evaluationItems.push(result);
+        executing.splice(executing.indexOf(p), 1);
+      });
+      executing.push(p);
+
+      if (executing.length >= maxConcurrency) {
+        await Promise.race(executing);
+      }
+    }
+
+    await Promise.all(executing);
+
+    // Submit items to API
+    const submitItems: SubmitItemData[] = evaluationItems.map((ei) => ({
+      dataset_item_id: ei.spanId || '', // Use spanId as identifier
+      input: ei.input,
+      output: ei.output,
+      expected: ei.expected,
+      scores: ei.scores.map((s) => ({
+        name: s.name,
+        value: s.value,
+        type: s.type,
+        string_value: s.stringValue,
+        reason: s.reason,
+        scoring_failed: s.scoringFailed,
+        metadata: s.metadata,
+      })),
+      trial_number: ei.trialNumber,
+      error: ei.error,
+    }));
+
+    await this.httpPost<APIResponse<unknown>>(`/v1/experiments/${experimentId}/items`, {
+      items: submitItems,
+    });
+
+    // Update experiment status
+    await this.httpPatch<APIResponse<unknown>>(`/v1/experiments/${experimentId}`, {
+      status: 'completed',
+    });
+
+    // Compute summary
+    const summary = computeSummary(evaluationItems);
+
+    this.log('Span-based experiment completed', { experimentId, itemCount: evaluationItems.length });
+
+    return {
+      experimentId,
+      experimentName: name,
+      source: 'spans',
+      url: `${this.baseUrl.replace('/api', '')}/experiments/${experimentId}`,
+      summary,
+      items: evaluationItems,
+    };
+  }
+
+  /**
+   * Run dataset-based evaluation (traditional mode)
+   */
+  private async runDatasetBased(options: RunOptions): Promise<EvaluationResults> {
     const {
       name,
       dataset: datasetOrId,
@@ -315,7 +532,11 @@ export class ExperimentsManager {
       onProgress,
     } = options;
 
-    this.log('Starting experiment', { name, maxConcurrency, trialCount });
+    if (!datasetOrId || !task) {
+      throw new EvaluationError('dataset and task are required for dataset-based evaluation');
+    }
+
+    this.log('Starting dataset-based experiment', { name, maxConcurrency, trialCount });
 
     // 1. Resolve dataset
     let dataset: Dataset;
@@ -339,6 +560,7 @@ export class ExperimentsManager {
         experimentId: '',
         experimentName: name,
         datasetId,
+        source: 'dataset',
         summary: {},
         items: [],
       };
@@ -456,7 +678,7 @@ export class ExperimentsManager {
 
     // 6. Submit items to API
     const submitItems: SubmitItemData[] = evaluationItems.map((ei) => ({
-      dataset_item_id: ei.datasetItemId,
+      dataset_item_id: ei.datasetItemId || '',
       input: ei.input,
       output: ei.output,
       expected: ei.expected,
@@ -485,13 +707,14 @@ export class ExperimentsManager {
     // 8. Compute summary
     const summary = computeSummary(evaluationItems);
 
-    this.log('Experiment completed', { experimentId, itemCount: evaluationItems.length });
+    this.log('Dataset-based experiment completed', { experimentId, itemCount: evaluationItems.length });
 
     // 9. Return results
     return {
       experimentId,
       experimentName: name,
       datasetId,
+      source: 'dataset',
       url: `${this.baseUrl.replace('/api', '')}/experiments/${experimentId}`,
       summary,
       items: evaluationItems,

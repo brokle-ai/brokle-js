@@ -26,6 +26,7 @@ import { PromptManager, Prompt } from './prompt';
 import { DatasetsManager } from './datasets';
 import { ScoresManager } from './scores';
 import { ExperimentsManager } from './experiments';
+import { QueryManager } from './query';
 
 const VERSION = '0.1.4';
 
@@ -52,6 +53,7 @@ export class Brokle {
   private datasetsManager: DatasetsManager | null = null;
   private scoresManager: ScoresManager | null = null;
   private experimentsManager: ExperimentsManager | null = null;
+  private queryManager: QueryManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -580,6 +582,48 @@ export class Brokle {
       });
     }
     return this.experimentsManager;
+  }
+
+  /**
+   * Access query operations for production telemetry.
+   *
+   * Returns a QueryManager for querying spans using filter expressions.
+   * This is "THE WEDGE" - enabling evaluation of existing production telemetry.
+   *
+   * @example
+   * ```typescript
+   * // Query spans with filter expression
+   * const result = await client.query.query({
+   *   filter: 'service.name=chatbot AND gen_ai.system=openai',
+   *   startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+   * });
+   *
+   * console.log(`Found ${result.total} spans`);
+   *
+   * // Stream with auto-pagination
+   * for await (const span of client.query.queryIter({ filter: 'gen_ai.system=openai' })) {
+   *   console.log(span.name, span.output);
+   * }
+   *
+   * // Use with experiments for span-based evaluation
+   * const evalResults = await client.experiments.run({
+   *   name: 'retrospective-analysis',
+   *   spans: result.spans,
+   *   extractInput: (span) => ({ prompt: span.input }),
+   *   extractOutput: (span) => span.output,
+   *   scorers: [Relevance()],
+   * });
+   * ```
+   */
+  get query(): QueryManager {
+    if (!this.queryManager) {
+      this.queryManager = new QueryManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.queryManager;
   }
 
   /**
