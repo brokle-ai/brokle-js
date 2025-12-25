@@ -1,7 +1,8 @@
 /**
  * Brokle Scorers Module
  *
- * Provides built-in scorers and factory functions for creating custom evaluation functions.
+ * Provides built-in scorers, LLM-as-Judge scorers, and factory functions for
+ * creating custom evaluation functions.
  *
  * Built-in Scorers:
  * - ExactMatch: Exact string comparison
@@ -10,13 +11,16 @@
  * - JSONValid: JSON validity check
  * - LengthCheck: String length validation
  *
+ * LLM-as-Judge Scorers:
+ * - LLMScorer: Use LLM models to evaluate outputs with project credentials
+ *
  * Factory Functions:
  * - scorer(): Create custom scorers from functions
  * - multiScorer(): Create scorers that return multiple scores
  *
  * @example
  * ```typescript
- * import { ExactMatch, Contains, scorer } from 'brokle/scorers';
+ * import { ExactMatch, Contains, LLMScorer, scorer } from 'brokle/scorers';
  *
  * // Built-in scorer
  * const exact = ExactMatch({ name: "answer_match" });
@@ -25,6 +29,13 @@
  *   scorer: exact,
  *   output: "Paris",
  *   expected: "Paris",
+ * });
+ *
+ * // LLM-as-Judge scorer
+ * const relevance = LLMScorer({
+ *   name: 'relevance',
+ *   prompt: 'Rate relevance 0-10: {{output}}',
+ *   model: 'gpt-4o',
  * });
  *
  * // Custom scorer
@@ -38,6 +49,10 @@
 
 // Built-in scorers
 export { ExactMatch, Contains, RegexMatch, JSONValid, LengthCheck } from './base';
+
+// LLM-as-Judge scorers
+export { LLMScorer } from './llm-scorer';
+export type { LLMScorerOptions, LLMScorerClientConfig } from './llm-scorer';
 export type {
   ExactMatchOptions,
   ContainsOptions,

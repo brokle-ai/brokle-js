@@ -147,7 +147,17 @@ export type {
 } from './scores';
 
 // Scorers (re-export for convenience - also available via 'brokle/scorers')
-export { ExactMatch, Contains, RegexMatch, JSONValid, LengthCheck, scorer, multiScorer } from './scorers';
+export {
+  ExactMatch,
+  Contains,
+  RegexMatch,
+  JSONValid,
+  LengthCheck,
+  LLMScorer,
+  scorer,
+  multiScorer,
+} from './scorers';
+export type { LLMScorerOptions, LLMScorerClientConfig } from './scorers';
 
 // Experiments Management (new namespace)
 export { ExperimentsManager, EvaluationError, TaskError, ScorerExecutionError } from './experiments';
