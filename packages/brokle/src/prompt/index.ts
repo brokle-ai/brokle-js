@@ -46,10 +46,13 @@ export {
   isChatTemplate,
   getCompiledContent,
   getCompiledMessages,
+  detectDialect,
+  detectTemplateDialect,
 } from './compiler';
 
 export type {
   PromptType,
+  TemplateDialect,
   MessageRole,
   ChatMessage,
   TextTemplate,
@@ -68,6 +71,7 @@ export type {
   AnthropicMessage,
   AnthropicRequest,
   Variables,
+  VariableValue,
   Fallback,
   TextFallback,
   ChatFallback,

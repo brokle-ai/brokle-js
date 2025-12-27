@@ -72,6 +72,16 @@ export interface APIPagination {
 export type PromptType = 'text' | 'chat';
 
 /**
+ * Template dialect for rendering
+ *
+ * - `simple`: Basic {{variable}} substitution only
+ * - `mustache`: Full Mustache support with sections, loops, partials
+ * - `jinja2`: Jinja2/Nunjucks with filters, conditionals, loops
+ * - `auto`: Auto-detect dialect from template syntax
+ */
+export type TemplateDialect = 'simple' | 'mustache' | 'jinja2' | 'auto';
+
+/**
  * Message role in a chat template
  */
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
@@ -84,6 +94,8 @@ export interface ChatMessage {
   content: string;
   name?: string;
   tool_call_id?: string;
+  /** Message type - 'placeholder' for history injection */
+  type?: 'placeholder' | string;
 }
 
 /**
@@ -132,6 +144,8 @@ export interface PromptVersion {
   commit_message: string;
   created_by: string;
   created_at: string;
+  /** Template dialect (simple, mustache, jinja2) */
+  dialect?: TemplateDialect;
 }
 
 /**
@@ -154,6 +168,8 @@ export interface PromptData {
   created_by: string;
   created_at: string;
   updated_at: string;
+  /** Template dialect (simple, mustache, jinja2) */
+  dialect?: TemplateDialect;
 }
 
 /**
@@ -278,9 +294,42 @@ export interface AnthropicRequest {
 }
 
 /**
- * Variables object for template compilation
+ * A single variable value - primitives, arrays, or objects
  */
-export type Variables = Record<string, string | number | boolean>;
+export type VariableValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | VariableValue[]
+  | { [key: string]: VariableValue };
+
+/**
+ * Variables object for template compilation
+ *
+ * Supports:
+ * - Primitives: string, number, boolean
+ * - Arrays: for Mustache sections ({{#items}}...{{/items}}) or history injection
+ * - Objects: for nested access ({{user.name}})
+ *
+ * @example
+ * ```typescript
+ * const variables: Variables = {
+ *   name: "Alice",
+ *   count: 42,
+ *   premium: true,
+ *   // Array for Mustache loop or history injection
+ *   history: [
+ *     { role: "user", content: "Hello" },
+ *     { role: "assistant", content: "Hi there!" }
+ *   ],
+ *   // Nested object
+ *   user: { name: "Alice", email: "alice@example.com" }
+ * };
+ * ```
+ */
+export type Variables = Record<string, VariableValue>;
 
 /**
  * Text fallback - a simple string template
