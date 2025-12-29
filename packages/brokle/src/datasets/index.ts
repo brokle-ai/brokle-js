@@ -41,12 +41,16 @@ export { Dataset } from './dataset';
 export type {
   DatasetItem,
   DatasetItemInput,
+  DatasetItemSource,
   DatasetData,
   DatasetConfig,
   CreateDatasetOptions,
   GetItemsOptions,
   ListDatasetsOptions,
   APIResponse,
+  KeysMapping,
+  BulkImportResult,
+  ImportOptions,
 } from './types';
 
 // Errors

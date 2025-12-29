@@ -28,6 +28,9 @@ import type {
   DatasetItemInput,
   GetItemsOptions,
   APIResponse,
+  KeysMapping,
+  BulkImportResult,
+  ImportOptions,
 } from './types';
 import { DatasetError } from './errors';
 
@@ -293,5 +296,233 @@ export class Dataset implements AsyncIterable<DatasetItem> {
 
   toString(): string {
     return `Dataset(id='${this._id}', name='${this._name}')`;
+  }
+
+  // ===========================================================================
+  // Import Methods
+  // ===========================================================================
+
+  /**
+   * Import dataset items from a JSON file.
+   *
+   * Supports both JSON array files and JSONL (one object per line) files.
+   *
+   * @param filePath - Path to JSON or JSONL file
+   * @param options - Import options (keysMapping, deduplicate)
+   * @returns BulkImportResult with created/skipped counts
+   *
+   * @example
+   * ```typescript
+   * const result = await dataset.insertFromJson('./data.json');
+   * console.log(`Created: ${result.created}, Skipped: ${result.skipped}`);
+   * ```
+   */
+  async insertFromJson(filePath: string, options: ImportOptions = {}): Promise<BulkImportResult> {
+    const fs = await import('fs/promises');
+    this.log(`Importing items from ${filePath}`);
+
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      const trimmed = content.trim();
+
+      let items: Record<string, unknown>[];
+
+      // Try parsing as JSON array first
+      try {
+        const parsed = JSON.parse(trimmed);
+        items = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        // Try parsing as JSONL (one JSON object per line)
+        items = trimmed
+          .split('\n')
+          .filter((line) => line.trim())
+          .map((line) => JSON.parse(line.trim()));
+      }
+
+      return this.importItems(items, options);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('ENOENT')) {
+        throw new DatasetError(`File not found: ${filePath}`);
+      }
+      if (error instanceof SyntaxError) {
+        throw new DatasetError(`Invalid JSON in ${filePath}: ${error.message}`);
+      }
+      throw new DatasetError(`Failed to import from JSON: ${error}`);
+    }
+  }
+
+  /**
+   * Create dataset items from production traces (OTEL-native).
+   *
+   * This is Brokle's differentiating feature - no competitor exposes this in SDK.
+   * Extracts input/output from trace spans to create evaluation dataset items.
+   *
+   * @param traceIds - Array of trace IDs to import from
+   * @param options - Import options (keysMapping, deduplicate)
+   * @returns BulkImportResult with created/skipped counts
+   *
+   * @example
+   * ```typescript
+   * const result = await dataset.fromTraces(['01HXYZ...', '01HABC...']);
+   * console.log(`Created ${result.created} items from traces`);
+   * ```
+   */
+  async fromTraces(traceIds: string[], options: ImportOptions = {}): Promise<BulkImportResult> {
+    if (traceIds.length === 0) {
+      return { created: 0, skipped: 0 };
+    }
+
+    this.log(`Creating items from ${traceIds.length} traces`);
+
+    const payload: Record<string, unknown> = {
+      trace_ids: traceIds,
+      deduplicate: options.deduplicate ?? true,
+    };
+
+    if (options.keysMapping) {
+      payload.keys_mapping = this.serializeKeysMapping(options.keysMapping);
+    }
+
+    const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
+      `/v1/datasets/${this._id}/items/from-traces`,
+      payload
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Create dataset items from production spans.
+   *
+   * @param spanIds - Array of span IDs to import from
+   * @param options - Import options (keysMapping, deduplicate)
+   * @returns BulkImportResult with created/skipped counts
+   *
+   * @example
+   * ```typescript
+   * const result = await dataset.fromSpans(['span1', 'span2']);
+   * console.log(`Created ${result.created} items from spans`);
+   * ```
+   */
+  async fromSpans(spanIds: string[], options: ImportOptions = {}): Promise<BulkImportResult> {
+    if (spanIds.length === 0) {
+      return { created: 0, skipped: 0 };
+    }
+
+    this.log(`Creating items from ${spanIds.length} spans`);
+
+    const payload: Record<string, unknown> = {
+      span_ids: spanIds,
+      deduplicate: options.deduplicate ?? true,
+    };
+
+    if (options.keysMapping) {
+      payload.keys_mapping = this.serializeKeysMapping(options.keysMapping);
+    }
+
+    const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
+      `/v1/datasets/${this._id}/items/from-spans`,
+      payload
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Internal method to import items via API.
+   */
+  private async importItems(
+    items: Record<string, unknown>[],
+    options: ImportOptions
+  ): Promise<BulkImportResult> {
+    if (items.length === 0) {
+      return { created: 0, skipped: 0 };
+    }
+
+    const payload: Record<string, unknown> = {
+      items,
+      deduplicate: options.deduplicate ?? true,
+    };
+
+    if (options.keysMapping) {
+      payload.keys_mapping = this.serializeKeysMapping(options.keysMapping);
+    }
+
+    const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
+      `/v1/datasets/${this._id}/items/import-json`,
+      payload
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Convert KeysMapping to API format (snake_case).
+   */
+  private serializeKeysMapping(mapping: KeysMapping): Record<string, string[]> {
+    const result: Record<string, string[]> = {};
+    if (mapping.inputKeys) result.input_keys = mapping.inputKeys;
+    if (mapping.expectedKeys) result.expected_keys = mapping.expectedKeys;
+    if (mapping.metadataKeys) result.metadata_keys = mapping.metadataKeys;
+    return result;
+  }
+
+  // ===========================================================================
+  // Export Methods
+  // ===========================================================================
+
+  /**
+   * Export dataset items to a JSON file.
+   *
+   * @param filePath - Path to write the JSON file
+   *
+   * @example
+   * ```typescript
+   * await dataset.toJson('./exported_data.json');
+   * ```
+   */
+  async toJson(filePath: string): Promise<void> {
+    const fs = await import('fs/promises');
+    this.log(`Exporting items to ${filePath}`);
+
+    try {
+      const items = await this.exportItems();
+      await fs.writeFile(filePath, JSON.stringify(items, null, 2), 'utf-8');
+    } catch (error) {
+      throw new DatasetError(`Failed to export to JSON: ${error}`);
+    }
+  }
+
+  /**
+   * Export all dataset items as an array.
+   *
+   * @returns Array of all dataset items
+   *
+   * @example
+   * ```typescript
+   * const items = await dataset.export();
+   * console.log(`Exported ${items.length} items`);
+   * ```
+   */
+  async export(): Promise<DatasetItem[]> {
+    this.log('Exporting all items');
+    return this.exportItems();
+  }
+
+  /**
+   * Internal method to fetch all items for export.
+   */
+  private async exportItems(): Promise<DatasetItem[]> {
+    const rawResponse = await this.httpGet<APIResponse<DatasetItem[] | { items: DatasetItem[] }>>(
+      `/v1/datasets/${this._id}/items/export`
+    );
+
+    const data = this.unwrapResponse(rawResponse);
+
+    // Handle both list and dict responses
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return (data as { items: DatasetItem[] }).items ?? [];
   }
 }
