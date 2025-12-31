@@ -5,7 +5,7 @@
  * After running this test, verify data in ClickHouse manually.
  */
 
-import { getClient, Attrs } from '../packages/brokle/src/index';
+import { getClient, Attrs } from '../src/index';
 
 // ========== Configuration ==========
 
