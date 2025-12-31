@@ -111,7 +111,7 @@ export function observe(options: ObserveOptions = {}) {
       if (options.captureInput) {
         try {
           attrs['input'] = JSON.stringify(args);
-        } catch (error) {
+        } catch (_error) {
           // Silently ignore serialization errors
           attrs['input'] = '[unable to serialize]';
         }
@@ -124,7 +124,7 @@ export function observe(options: ObserveOptions = {}) {
           if (options.captureOutput) {
             try {
               span.setAttribute('output', JSON.stringify(result));
-            } catch (error) {
+            } catch (_error) {
               // Silently ignore serialization errors
               span.setAttribute('output', '[unable to serialize]');
             }

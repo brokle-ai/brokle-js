@@ -59,7 +59,7 @@ export function wrapOpenAI<T extends OpenAI>(client: T): T {
   if (!c.chat?.completions?.create && !c.completions?.create) {
     throw new Error(
       'Invalid OpenAI client passed to wrapOpenAI. ' +
-      'The "openai" package (^4.0.0) is required. ' +
+      'The "openai" package (v4.0.0 or higher) is required. ' +
       'Install it with: npm install openai'
     );
   }
