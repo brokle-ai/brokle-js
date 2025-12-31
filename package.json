@@ -1,6 +1,6 @@
 {
   "name": "brokle",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "OpenTelemetry-native observability SDK for AI applications",
   "author": "Brokle AI",
   "license": "MIT",
@@ -37,10 +37,18 @@
   },
   "typesVersions": {
     "*": {
-      "openai": ["./dist/integrations/openai/index.d.ts"],
-      "anthropic": ["./dist/integrations/anthropic/index.d.ts"],
-      "langchain": ["./dist/integrations/langchain/index.d.ts"],
-      "scorers": ["./dist/scorers/index.d.ts"]
+      "openai": [
+        "./dist/integrations/openai/index.d.ts"
+      ],
+      "anthropic": [
+        "./dist/integrations/anthropic/index.d.ts"
+      ],
+      "langchain": [
+        "./dist/integrations/langchain/index.d.ts"
+      ],
+      "scorers": [
+        "./dist/scorers/index.d.ts"
+      ]
     }
   },
   "files": [
