@@ -8,8 +8,8 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-proto';
 import {
   MeterProvider,
   PeriodicExportingMetricReader,
-  View,
-  ExplicitBucketHistogramAggregation,
+  AggregationType,
+  type ViewOptions,
 } from '@opentelemetry/sdk-metrics';
 import type { Resource } from '@opentelemetry/resources';
 import type { BrokleConfig } from '../types/config';
@@ -38,26 +38,38 @@ export interface MetricsExporterOptions {
 /**
  * Creates histogram views with explicit bucket boundaries.
  *
- * @returns Array of View configurations for histograms
+ * @returns Array of ViewOptions configurations for histograms
  */
-function createHistogramViews(): View[] {
+function createHistogramViews(): ViewOptions[] {
   return [
-    new View({
+    {
       instrumentName: MetricNames.TOKEN_USAGE,
-      aggregation: new ExplicitBucketHistogramAggregation([...TOKEN_BOUNDARIES]),
-    }),
-    new View({
+      aggregation: {
+        type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+        options: { boundaries: [...TOKEN_BOUNDARIES] },
+      },
+    },
+    {
       instrumentName: MetricNames.OPERATION_DURATION,
-      aggregation: new ExplicitBucketHistogramAggregation([...DURATION_BOUNDARIES]),
-    }),
-    new View({
+      aggregation: {
+        type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+        options: { boundaries: [...DURATION_BOUNDARIES] },
+      },
+    },
+    {
       instrumentName: MetricNames.TIME_TO_FIRST_TOKEN,
-      aggregation: new ExplicitBucketHistogramAggregation([...TTFT_BOUNDARIES]),
-    }),
-    new View({
+      aggregation: {
+        type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+        options: { boundaries: [...TTFT_BOUNDARIES] },
+      },
+    },
+    {
       instrumentName: MetricNames.INTER_TOKEN_LATENCY,
-      aggregation: new ExplicitBucketHistogramAggregation([...INTER_TOKEN_BOUNDARIES]),
-    }),
+      aggregation: {
+        type: AggregationType.EXPLICIT_BUCKET_HISTOGRAM,
+        options: { boundaries: [...INTER_TOKEN_BOUNDARIES] },
+      },
+    },
   ];
 }
 

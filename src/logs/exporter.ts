@@ -75,25 +75,27 @@ export function createLoggerProvider(options: LogsExporterOptions): LoggerProvid
   }
 
   const exporter = createLogsExporter(config);
-  const loggerProvider = new LoggerProvider({ resource });
 
-  if (flushSync) {
-    // SimpleLogRecordProcessor for serverless/Lambda
-    loggerProvider.addLogRecordProcessor(new SimpleLogRecordProcessor(exporter));
-    if (config.debug) {
-      console.log('[Brokle] LoggerProvider created with SimpleLogRecordProcessor');
-    }
-  } else {
-    // BatchLogRecordProcessor for long-running apps
-    loggerProvider.addLogRecordProcessor(
-      new BatchLogRecordProcessor(exporter, {
+  // Create processor based on sync/async mode
+  const processor = flushSync
+    ? new SimpleLogRecordProcessor(exporter)
+    : new BatchLogRecordProcessor(exporter, {
         maxQueueSize: config.maxQueueSize,
         maxExportBatchSize: config.flushAt,
         scheduledDelayMillis: config.flushInterval * 1000,
         exportTimeoutMillis: config.timeout,
-      })
-    );
-    if (config.debug) {
+      });
+
+  // OTEL 2.x: Pass processors via constructor (addLogRecordProcessor removed)
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [processor],
+  });
+
+  if (config.debug) {
+    if (flushSync) {
+      console.log('[Brokle] LoggerProvider created with SimpleLogRecordProcessor');
+    } else {
       console.log('[Brokle] LoggerProvider created with BatchLogRecordProcessor:', {
         maxQueueSize: config.maxQueueSize,
         maxExportBatchSize: config.flushAt,
@@ -120,25 +122,27 @@ export async function createLoggerProviderAsync(
   const { config, resource, flushSync = false } = options;
 
   const exporter = await createLogExporterAsync(config);
-  const loggerProvider = new LoggerProvider({ resource });
 
-  if (flushSync) {
-    // SimpleLogRecordProcessor for serverless/Lambda
-    loggerProvider.addLogRecordProcessor(new SimpleLogRecordProcessor(exporter));
-    if (config.debug) {
-      console.log('[Brokle] LoggerProvider created with SimpleLogRecordProcessor (gRPC)');
-    }
-  } else {
-    // BatchLogRecordProcessor for long-running apps
-    loggerProvider.addLogRecordProcessor(
-      new BatchLogRecordProcessor(exporter, {
+  // Create processor based on sync/async mode
+  const processor = flushSync
+    ? new SimpleLogRecordProcessor(exporter)
+    : new BatchLogRecordProcessor(exporter, {
         maxQueueSize: config.maxQueueSize,
         maxExportBatchSize: config.flushAt,
         scheduledDelayMillis: config.flushInterval * 1000,
         exportTimeoutMillis: config.timeout,
-      })
-    );
-    if (config.debug) {
+      });
+
+  // OTEL 2.x: Pass processors via constructor (addLogRecordProcessor removed)
+  const loggerProvider = new LoggerProvider({
+    resource,
+    processors: [processor],
+  });
+
+  if (config.debug) {
+    if (flushSync) {
+      console.log('[Brokle] LoggerProvider created with SimpleLogRecordProcessor (gRPC)');
+    } else {
       console.log('[Brokle] LoggerProvider created with BatchLogRecordProcessor:', {
         maxQueueSize: config.maxQueueSize,
         maxExportBatchSize: config.flushAt,

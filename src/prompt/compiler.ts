@@ -29,13 +29,13 @@ const PATTERNS = {
   // Simple: {{variable}}
   simple: /\{\{(\w+)\}\}/g,
   // Mustache sections: {{#section}}, {{^inverted}}, {{>partial}}
-  mustacheSection: /\{\{[#^>\/](\w+)\}\}/,
+  mustacheSection: /\{\{[#^>/](\w+)\}\}/,
   // Jinja2 blocks: {% if %}, {% for %}, {{ var|filter }}, {{ var.attr }}
   jinja2Block: /\{%\s*(if|for|else|elif|endif|endfor|block|extends|include|macro|endmacro|set)\b/,
   jinja2Filter: /\{\{\s*\w+\s*\|/,
   jinja2DotNotation: /\{\{\s*\w+\.\w+/,
   // Mustache variable extraction (including sections)
-  mustacheVars: /\{\{([#^\/]?)(\w+)\}\}/g,
+  mustacheVars: /\{\{([#^/]?)(\w+)\}\}/g,
   // Jinja2 variable extraction (captures full dot-notation path)
   jinja2Vars: /\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*?)(?:\s*\|[^}]*)?\s*\}\}/g,
   jinja2ForLoop: /\{%\s*for\s+\w+\s+in\s+(\w+)/g,

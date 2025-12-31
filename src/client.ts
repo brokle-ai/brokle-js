@@ -9,7 +9,7 @@ import { type Span, type Tracer, type Attributes, SpanStatusCode, metrics, trace
 import { logs } from '@opentelemetry/api-logs';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { TraceIdRatioBasedSampler, AlwaysOnSampler } from '@opentelemetry/sdk-trace-base';
-import { Resource } from '@opentelemetry/resources';
+import { defaultResource, resourceFromAttributes } from '@opentelemetry/resources';
 import type { MeterProvider } from '@opentelemetry/sdk-metrics';
 import type { LoggerProvider } from '@opentelemetry/sdk-logs';
 import type { BrokleConfig, BrokleConfigInput } from './types/config';
@@ -88,7 +88,7 @@ export class Brokle {
 
     // Resource: We don't set service.name to respect user's OTEL_SERVICE_NAME.
     // SDK identification via instrumentation scope, project ID from backend auth.
-    let resource = Resource.default();
+    let resource = defaultResource();
     const resourceAttrs: Record<string, string> = {};
     if (this.config.release) {
       resourceAttrs[Attrs.BROKLE_RELEASE] = this.config.release;
@@ -98,7 +98,7 @@ export class Brokle {
     }
 
     if (Object.keys(resourceAttrs).length > 0) {
-      resource = resource.merge(new Resource(resourceAttrs));
+      resource = resource.merge(resourceFromAttributes(resourceAttrs));
     }
 
     // TraceIdRatioBasedSampler ensures entire traces are sampled together (no partial traces)
@@ -767,7 +767,7 @@ export class Brokle {
     }
 
     // gRPC requires async exporters, create providers manually
-    let resource = Resource.default();
+    let resource = defaultResource();
     const resourceAttrs: Record<string, string> = {};
     if (config.release) {
       resourceAttrs[Attrs.BROKLE_RELEASE] = config.release;
@@ -776,7 +776,7 @@ export class Brokle {
       resourceAttrs[Attrs.BROKLE_VERSION] = config.version;
     }
     if (Object.keys(resourceAttrs).length > 0) {
-      resource = resource.merge(new Resource(resourceAttrs));
+      resource = resource.merge(resourceFromAttributes(resourceAttrs));
     }
 
     const sampler =
