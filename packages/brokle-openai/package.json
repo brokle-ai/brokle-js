@@ -1,6 +1,6 @@
 {
   "name": "brokle-openai",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "OpenAI SDK wrapper with automatic Brokle tracing",
   "author": "Brokle AI",
   "license": "MIT",
