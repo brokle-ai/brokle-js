@@ -56,7 +56,7 @@ export function wrapAnthropic<T extends Anthropic>(client: T): T {
   if (!c.messages?.create) {
     throw new Error(
       'Invalid Anthropic client passed to wrapAnthropic. ' +
-      'The "@anthropic-ai/sdk" package (^0.30.0) is required. ' +
+      'The "@anthropic-ai/sdk" package (v0.30.0 or higher) is required. ' +
       'Install it with: npm install @anthropic-ai/sdk'
     );
   }

@@ -149,7 +149,7 @@ export class Prompt {
       });
 
       return ChatPromptTemplate.fromMessages(langchainMessages);
-    } catch (error) {
+    } catch (_error) {
       throw new Error(
         '@langchain/core is required for toLangChain(). ' +
           'Install with: npm install @langchain/core'
@@ -198,7 +198,7 @@ export class Prompt {
       });
 
       return new ChatPromptTemplate({ messageTemplates: llamaMessages });
-    } catch (error) {
+    } catch (_error) {
       throw new Error(
         'llamaindex is required for toLlamaIndex(). ' +
           'Install with: npm install llamaindex'
