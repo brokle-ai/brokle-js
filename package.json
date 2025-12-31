@@ -1,6 +1,6 @@
 {
   "name": "brokle-js-workspace",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Brokle TypeScript/JavaScript SDK monorepo",
   "author": "Brokle AI",
