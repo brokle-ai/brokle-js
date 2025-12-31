@@ -130,7 +130,9 @@ function extractVariablesFromString(content: string, dialect: TemplateDialect): 
         const varPath = match[1];
         // Extract root variable from dot-notation path
         const rootVar = varPath.split('.')[0];
-        variables.add(rootVar);
+        if (rootVar) {
+          variables.add(rootVar);
+        }
       }
     }
     PATTERNS.jinja2Vars.lastIndex = 0;
