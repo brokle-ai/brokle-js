@@ -28,8 +28,53 @@ export interface DatasetItem {
   expected?: Record<string, unknown>;
   /** Additional metadata */
   metadata?: Record<string, unknown>;
+  /** Item source (manual, trace, span, csv, json, sdk) */
+  source: DatasetItemSource;
+  /** Source trace ID if created from trace */
+  source_trace_id?: string;
+  /** Source span ID if created from span */
+  source_span_id?: string;
   /** ISO timestamp when created */
   created_at: string;
+}
+
+/**
+ * Source type for dataset items
+ */
+export type DatasetItemSource = 'manual' | 'trace' | 'span' | 'csv' | 'json' | 'sdk';
+
+/**
+ * Field mapping for bulk import operations
+ */
+export interface KeysMapping {
+  /** Keys to extract for input field */
+  inputKeys?: string[];
+  /** Keys to extract for expected field */
+  expectedKeys?: string[];
+  /** Keys to extract for metadata field */
+  metadataKeys?: string[];
+}
+
+/**
+ * Result of a bulk import operation
+ */
+export interface BulkImportResult {
+  /** Number of items created */
+  created: number;
+  /** Number of items skipped (duplicates) */
+  skipped: number;
+  /** List of error messages */
+  errors?: string[];
+}
+
+/**
+ * Options for import operations
+ */
+export interface ImportOptions {
+  /** Optional field mapping for extraction */
+  keysMapping?: KeysMapping;
+  /** Skip items with duplicate content (default: true) */
+  deduplicate?: boolean;
 }
 
 /**
