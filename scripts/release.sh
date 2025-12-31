@@ -109,36 +109,22 @@ if ! pnpm test; then
 fi
 echo -e "${GREEN}✅ Tests passed${NC}"
 
-# Update all package.json files
+# Update package.json version
 echo ""
-echo "📝 Updating package versions to $NEW_VERSION..."
+echo "📝 Updating package version to $NEW_VERSION..."
 
-# Update workspace root package.json
 node -e "
 const fs = require('fs');
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 pkg.version = '$NEW_VERSION';
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
 "
-echo "  ✓ Updated package.json"
-
-# Update all package package.json files
-for pkg_json in packages/*/package.json; do
-    echo "  ✓ Updating $pkg_json"
-    node -e "
-    const fs = require('fs');
-    const pkg = JSON.parse(fs.readFileSync('$pkg_json', 'utf8'));
-    pkg.version = '$NEW_VERSION';
-    fs.writeFileSync('$pkg_json', JSON.stringify(pkg, null, 2) + '\n');
-    "
-done
-
-echo -e "${GREEN}✅ All package versions updated${NC}"
+echo -e "${GREEN}✅ Updated package.json${NC}"
 
 # Create git commit
 echo ""
 echo "📦 Creating release commit..."
-git add package.json packages/*/package.json
+git add package.json
 git commit -m "chore: release v$NEW_VERSION"
 echo -e "${GREEN}✅ Commit created${NC}"
 

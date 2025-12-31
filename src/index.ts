@@ -7,6 +7,9 @@
 // Core client
 export { Brokle, getClient, resetClient } from './client';
 
+// Version
+export { SDK_VERSION, SDK_NAME } from './version';
+
 // Configuration
 export type { BrokleConfig, BrokleConfigInput } from './types/config';
 export { loadFromEnv, validateConfig } from './config';

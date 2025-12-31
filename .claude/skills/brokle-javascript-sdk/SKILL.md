@@ -587,7 +587,7 @@ export default defineConfig({
   splitting: false,
   minify: false,
   outDir: 'dist',
-  target: 'node18',
+  target: 'node22',
   platform: 'node',
 });
 ```

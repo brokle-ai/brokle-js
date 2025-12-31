@@ -1,350 +1,347 @@
-# Brokle TypeScript/JavaScript SDK
+# Brokle SDK for TypeScript/JavaScript
 
-OpenTelemetry-native observability for AI applications. Track, monitor, and optimize your LLM applications with industry-standard tracing.
+OpenTelemetry-native observability SDK for AI applications. Track, monitor, and optimize your LLM applications with industry-standard OTLP traces.
 
-## 📦 Packages
+## Features
 
-This monorepo contains multiple packages for different use cases:
+- ✅ **OTEL-Native**: Built on OpenTelemetry SDK (industry standard)
+- ✅ **GenAI 1.28+ Compliant**: Full support for OTEL GenAI semantic conventions
+- ✅ **Trace-Level Sampling**: Deterministic sampling (no partial traces)
+- ✅ **Type-Safe**: Complete TypeScript type definitions
+- ✅ **Zero Config**: Works out of the box with environment variables
+- ✅ **Gzip Compression**: Automatic bandwidth optimization
+- ✅ **Dual Build**: ESM + CJS support
 
-### Core SDK
-- **[brokle](./packages/brokle)** - Core SDK with OTEL-native tracing
-  - ✅ Type-safe GenAI 1.28+ attributes
-  - ✅ Trace-level sampling
-  - ✅ Gzip compression
-  - ✅ Decorators and async helpers
-  - ✅ ESM + CJS dual build
-
-### SDK Wrappers
-- **[brokle-openai](./packages/brokle-openai)** - OpenAI SDK wrapper with automatic tracing
-- **[brokle-anthropic](./packages/brokle-anthropic)** - Anthropic SDK wrapper
-
-### Integrations
-- **[brokle-langchain](./packages/brokle-langchain)** - LangChain.js callbacks
-- **brokle-vercel** - Vercel AI SDK middleware (Coming Soon)
-
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
 npm install brokle @opentelemetry/api
+# or
+pnpm add brokle @opentelemetry/api
+# or
+yarn add brokle @opentelemetry/api
 ```
 
-### Basic Usage
+## Quick Start
+
+### 1. Initialize the SDK
 
 ```typescript
-import { getClient, observe, Attrs } from 'brokle';
+import { getClient } from 'brokle';
 
-// Initialize
+// Option 1: From environment variables
+// Set BROKLE_API_KEY=bk_... in your environment
+const client = getClient();
+
+// Option 2: Direct configuration
 const client = getClient({
-  apiKey: process.env.BROKLE_API_KEY,
+  apiKey: 'bk_...',
+  baseUrl: 'https://api.brokle.ai',
   environment: 'production',
 });
+```
 
-// Option 1: Decorators
+### 2. Trace Your Code
+
+#### Using Decorators (Recommended)
+
+```typescript
+import { observe } from 'brokle';
+
 class AIService {
-  @observe({ name: 'chat', asType: 'generation' })
-  async chat(prompt: string) {
-    const response = await openai.chat.completions.create({...});
+  @observe({ name: 'chat-completion', asType: 'generation' })
+  async chat(prompt: string): Promise<string> {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [{ role: 'user', content: prompt }],
+    });
     return response.choices[0].message.content;
   }
 }
+```
 
-// Option 2: Traced function
+#### Using Traced Function
+
+```typescript
+import { getClient, Attrs } from 'brokle';
+
+const client = getClient();
+
 await client.traced('my-operation', async (span) => {
   span.setAttribute(Attrs.USER_ID, 'user-123');
-  return await doWork();
-});
+  span.setAttribute('custom-attr', 'value');
 
-// Option 3: Generation helper
-await client.generation('chat', 'gpt-4', 'openai', async (span) => {
-  const response = await openai.chat.completions.create({...});
-  span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, response.usage.prompt_tokens);
-  return response;
+  const result = await doWork();
+
+  return result;
 });
 ```
 
-## 📚 Documentation
-
-- [Core SDK Documentation](./packages/brokle/README.md)
-- [Examples](./examples/)
-- [API Reference](https://docs.brokle.ai/sdk/typescript)
-
-## 🎯 Features
-
-### Industry-Standard OTLP
-Built on OpenTelemetry SDK - compatible with OTEL ecosystem
-
-### GenAI 1.28+ Compliance
-Full support for OTEL GenAI semantic conventions:
-- `gen_ai.provider.name`, `gen_ai.operation.name`
-- `gen_ai.input.messages`, `gen_ai.output.messages`
-- `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`
-- Provider-specific attributes (OpenAI, Anthropic, Google)
-
-### Trace-Level Sampling
-Deterministic sampling with `TraceIdRatioBasedSampler`:
-- No partial traces
-- Consistent across distributed systems
-- Configurable sample rate (0.0 to 1.0)
-
-### Type-Safe Attributes
-```typescript
-import { Attrs, LLMProvider } from 'brokle';
-
-span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.OPENAI);
-span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, 'gpt-4');
-```
-
-### Flexible Deployment
-- **Long-running apps**: BatchSpanProcessor with configurable batching
-- **Serverless/Lambda**: SimpleSpanProcessor with immediate export
-- **Configurable**: Batch size, flush interval, queue size
-
-### Gzip Compression
-Automatic bandwidth optimization (65% size reduction)
-
-## 🔒 Privacy and Data Masking
-
-Brokle supports client-side data masking to protect sensitive information before transmission. Masking is applied to input/output data and metadata **before** it leaves your application.
-
-### Basic Usage
+#### Using Generation Helper
 
 ```typescript
-import { Brokle } from 'brokle';
+import { getClient, Attrs } from 'brokle';
 
-const maskEmails = (data: unknown): unknown => {
-  if (typeof data === 'string') {
-    return data.replace(/\b[\w.]+@[\w.]+\b/g, '[EMAIL]');
-  }
-  if (typeof data === 'object' && data !== null) {
-    if (Array.isArray(data)) {
-      return data.map(maskEmails);
-    }
-    return Object.fromEntries(
-      Object.entries(data).map(([k, v]) => [k, maskEmails(v)])
-    );
-  }
-  return data;
-};
+const client = getClient();
 
-// Configure masking at client initialization
-const client = new Brokle({
-  apiKey: 'bk_secret',
-  mask: maskEmails
-});
+const response = await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: 'Hello' }],
+  });
 
-// All input/output automatically masked
-await client.traced('process', async (span) => {
-  span.setAttribute('input.value', 'Contact john@example.com');
-  // Transmitted as: input.value="Contact [EMAIL]"
+  // Capture GenAI attributes
+  span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, JSON.stringify([...]));
+  span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([...]));
+  span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, completion.usage.prompt_tokens);
+  span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, completion.usage.completion_tokens);
+
+  return completion;
 });
 ```
 
-### Using Built-in Helpers
+## Configuration
 
-The SDK includes pre-built masking utilities for common PII patterns:
+### Environment Variables
+
+```bash
+# Required
+BROKLE_API_KEY=bk_your_api_key_here
+
+# Optional
+BROKLE_BASE_URL=https://api.brokle.ai  # Default: http://localhost:8080
+BROKLE_ENVIRONMENT=production           # Default: default
+BROKLE_DEBUG=true                       # Default: false
+BROKLE_SAMPLE_RATE=0.5                  # Default: 1.0 (0.0-1.0)
+BROKLE_FLUSH_SYNC=true                  # Default: false (use for serverless)
+BROKLE_FLUSH_AT=100                     # Default: 100 (batch size)
+BROKLE_FLUSH_INTERVAL=10                # Default: 10 seconds
+```
+
+### Programmatic Configuration
 
 ```typescript
-import { Brokle } from 'brokle';
-import { MaskingHelper } from 'brokle/utils/masking';
+import { getClient } from 'brokle';
 
-// Option 1: Mask all common PII (recommended)
-const client = new Brokle({
-  apiKey: 'bk_secret',
-  mask: MaskingHelper.maskPII  // Masks emails, phones, SSN, credit cards, API keys
+const client = getClient({
+  apiKey: 'bk_...',
+  baseUrl: 'https://api.brokle.ai',
+  environment: 'production',
+  debug: false,
+  sampleRate: 1.0,           // Trace-level sampling
+  flushSync: false,          // Set true for serverless
+  flushAt: 100,             // Batch size
+  flushInterval: 10,        // Flush interval (seconds)
+  maxQueueSize: 10000,      // Max queue size
+  timeout: 30000,           // Request timeout (ms)
 });
-
-// Option 2: Mask specific PII types
-const client = new Brokle({apiKey: 'bk_secret', mask: MaskingHelper.maskEmails});
-const client = new Brokle({apiKey: 'bk_secret', mask: MaskingHelper.maskPhones});
-const client = new Brokle({apiKey: 'bk_secret', mask: MaskingHelper.maskAPIKeys});
-
-// Option 3: Field-based masking
-const client = new Brokle({
-  apiKey: 'bk_secret',
-  mask: MaskingHelper.fieldMask(['password', 'ssn', 'api_key'])
-});
-
-// Option 4: Combine multiple strategies
-const combinedMask = MaskingHelper.combineMasks(
-  MaskingHelper.maskEmails,
-  MaskingHelper.maskPhones,
-  MaskingHelper.fieldMask(['password', 'secret_token'])
-);
-const client = new Brokle({apiKey: 'bk_secret', mask: combinedMask});
 ```
 
-### What Gets Masked
+## Prompt Management
 
-Masking applies to these span attributes:
-- `input.value` - Generic input data
-- `output.value` - Generic output data
-- `gen_ai.input.messages` - LLM chat messages
-- `gen_ai.output.messages` - LLM response messages
-- `metadata` - Custom metadata
+Brokle provides centralized prompt storage with versioning, labels, and caching.
 
-**Structural attributes are NOT masked** (model names, token counts, metrics, timestamps, environment tags).
-
-### Error Handling
-
-If your masking function throws an exception, Brokle returns:
-```
-"<fully masked due to failed mask function>"
-```
-
-This ensures sensitive data is **never transmitted** even if masking fails (security-first design).
-
-### Custom Pattern Masking
-
-Create custom masking for your specific needs:
-
-```typescript
-import { MaskingHelper } from 'brokle/utils/masking';
-
-// Mask IPv4 addresses
-const maskIP = MaskingHelper.customPatternMask(
-  /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g,
-  '[IP_ADDRESS]'
-);
-
-const client = new Brokle({apiKey: 'bk_secret', mask: maskIP});
-```
-
-### Security Best Practices
-
-1. **Client-side masking**: Data is masked before leaving your application
-2. **Test your masks**: Verify patterns catch your specific PII in development
-3. **Fail-safe defaults**: Exceptions result in full masking (never sends unmasked data)
-4. **Performance**: Masking adds <1ms overhead per span
-
-For more examples, see `examples/masking-basic.ts` and `examples/masking-helpers.ts`.
-
-## 🏗️ Architecture
-
-### OTEL-Native Design
-
-```
-TypeScript SDK → OpenTelemetry SDK → OTLP/HTTP → Brokle Backend
-                 (TracerProvider)     (Protobuf+Gzip)
-```
-
-### Key Components
-
-1. **BrokleClient**: Main SDK class
-   - TracerProvider setup
-   - Resource attributes
-   - Trace-level sampling
-   - Helper methods
-
-2. **BrokleSpanProcessor**: Wrapper pattern
-   - Wraps BatchSpanProcessor or SimpleSpanProcessor
-   - Future: PII masking, custom transformations
-
-3. **BrokleExporter**: OTLP configuration
-   - API key authentication
-   - Gzip compression
-   - Environment tags
-
-4. **Symbol Singleton**: Global state management
-   - Single TracerProvider instance
-   - No process exit handlers
-   - Explicit shutdown
-
-## 📋 Examples
-
-### Simple Tracing
 ```typescript
 import { getClient } from 'brokle';
 
 const client = getClient();
 
-await client.traced('my-operation', async (span) => {
-  span.setAttribute('custom', 'value');
-  return await doWork();
+// Fetch a prompt
+const prompt = await client.prompts.get("greeting", {
+  label: "production"
 });
+
+// Compile with variables
+const compiled = prompt.compile({ name: "Alice" });
+
+// Convert to OpenAI format
+const messages = prompt.toOpenAIMessages({ name: "Alice" });
+
+// Convert to Anthropic format
+const anthropicRequest = prompt.toAnthropicRequest({ name: "Alice" });
+
+// List all prompts
+const { data, pagination } = await client.prompts.list({
+  type: "chat",
+  limit: 10
+});
+
+data.forEach(p => {
+  console.log(`${p.name} v${p.version} (${p.type})`);
+});
+
+// Cache management
+client.prompts.invalidate("greeting");  // Invalidate specific prompt
+client.prompts.clearCache();            // Clear all cached prompts
+const stats = client.prompts.getCacheStats();  // Get cache stats
 ```
 
-### LLM Generation
+## Advanced Usage
+
+### Manual Span Control
+
 ```typescript
-await client.generation('chat', 'gpt-4', 'openai', async (span) => {
-  const response = await openai.chat.completions.create({...});
+import { getClient } from 'brokle';
 
-  span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, JSON.stringify([...]));
-  span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([...]));
-  span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, response.usage.prompt_tokens);
+const client = getClient();
+const tracer = client.getTracer();
 
-  return response;
+// Start a manual span
+const span = tracer.startSpan('my-span', {
+  attributes: {
+    'custom.attribute': 'value',
+  },
 });
-```
 
-### Decorators
-```typescript
-class AIService {
-  @observe({ captureInput: true, captureOutput: true })
-  async process(data: any) {
-    return await processData(data);
-  }
+try {
+  // Do work
+  await doWork();
+
+  // Set success status
+  span.setStatus({ code: SpanStatusCode.OK });
+} catch (error) {
+  // Record exception
+  span.recordException(error);
+  span.setStatus({
+    code: SpanStatusCode.ERROR,
+    message: error.message,
+  });
+  throw error;
+} finally {
+  // Always end the span
+  span.end();
 }
 ```
 
-### Serverless
-```typescript
-const client = getClient({ flushSync: true });
+### Trace Function Wrapper
 
-export const handler = async (event) => {
-  await client.traced('handler', async (span) => {
-    return await processEvent(event);
+```typescript
+import { traceFunction, Attrs } from 'brokle';
+
+const tracedProcess = traceFunction(
+  'process-data',
+  async (data: any) => {
+    return processData(data);
+  },
+  {
+    captureInput: true,
+    captureOutput: true,
+    tags: ['critical', 'production'],
+    userId: 'user-123',
+  }
+);
+
+// Use it
+const result = await tracedProcess(myData);
+```
+
+### Serverless/Lambda Setup
+
+```typescript
+import { getClient } from 'brokle';
+
+// Initialize once (outside handler)
+const client = getClient({
+  flushSync: true,  // Use SimpleSpanProcessor for immediate export
+});
+
+export const handler = async (event: any) => {
+  await client.traced('lambda-handler', async (span) => {
+    span.setAttribute('event.type', event.type);
+
+    const result = await processEvent(event);
+
+    return result;
   });
 
+  // Force flush before exit
   await client.flush();
+
   return { statusCode: 200 };
 };
 ```
 
-## 🛠️ Development
+### Long-Running Application Shutdown
 
-### Setup
+```typescript
+import { getClient } from 'brokle';
 
-```bash
-# Install dependencies
-pnpm install
+const client = getClient();
 
-# Build all packages
-pnpm run build
-
-# Run tests
-pnpm test
-
-# Lint
-pnpm run lint
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('Shutting down...');
+  await client.shutdown();
+  process.exit(0);
+});
 ```
 
-### Project Structure
+## Type-Safe Attributes
+
+Use the `Attrs` constant for type-safe attribute keys:
+
+```typescript
+import { Attrs, LLMProvider } from 'brokle';
+
+span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.OPENAI);
+span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, 'gpt-4');
+span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'chat');
+span.setAttribute(Attrs.USER_ID, 'user-123');
+span.setAttribute(Attrs.SESSION_ID, 'session-456');
+span.setAttribute(Attrs.TAGS, JSON.stringify(['production', 'critical']));
+```
+
+## Integration Packages
+
+For automatic tracing of popular SDKs:
+
+- `brokle-openai` - OpenAI SDK wrapper (Proxy-based, zero code changes)
+- `brokle-anthropic` - Anthropic SDK wrapper
+- `brokle-langchain` - LangChain.js callbacks
+
+## Examples
+
+See the [examples](../../examples) directory for complete working examples:
+
+- `basic-usage.ts` - Simple tracing patterns
+- `wrapper-usage.ts` - SDK wrappers (OpenAI, Anthropic)
+- `langchain-integration.ts` - LangChain.js integration
+- `nextjs-app/` - Next.js application example
+
+## Architecture
+
+### OTEL-Native Design
 
 ```
-sdk/javascript/
-├── packages/
-│   ├── brokle/              # Core SDK
-│   ├── brokle-openai/       # OpenAI wrapper
-│   ├── brokle-anthropic/    # Anthropic wrapper
-│   └── brokle-langchain/    # LangChain integration
-├── examples/                # Usage examples
-├── tests/                   # Integration tests
-└── pnpm-workspace.yaml      # Monorepo config
+TypeScript SDK → OpenTelemetry SDK → OTLP/HTTP → Brokle Backend
+                 (Industry Standard)  (Protobuf+Gzip)
 ```
 
-## 🤝 Contributing
+### Key Components
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+- **BrokleClient**: Main SDK class with TracerProvider
+- **BrokleSpanProcessor**: Wrapper around BatchSpanProcessor/SimpleSpanProcessor
+- **BrokleExporter**: OTLP exporter with Gzip compression and API key auth
+- **Symbol Singleton**: Global state management
 
-## 📄 License
+### Trace-Level Sampling
+
+Uses `TraceIdRatioBasedSampler` for deterministic sampling:
+- Entire traces sampled together (no partial traces)
+- Sampling decision based on trace ID
+- Consistent across distributed systems
+
+## Requirements
+
+- Node.js >= 22.0.0
+- TypeScript >= 5.0 (for decorators)
+
+## License
 
 MIT
 
-## 🔗 Links
+## Support
 
-- [Documentation](https://docs.brokle.ai)
-- [GitHub](https://github.com/brokle-ai/brokle-js)
-- [Issues](https://github.com/brokle-ai/brokle-js/issues)
-- [Brokle Platform](https://brokle.ai)
+- Documentation: https://docs.brokle.ai
+- GitHub: https://github.com/brokle-ai/brokle-js
+- Issues: https://github.com/brokle-ai/brokle-js/issues

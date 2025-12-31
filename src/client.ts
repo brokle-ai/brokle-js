@@ -27,8 +27,7 @@ import { DatasetsManager } from './datasets';
 import { ScoresManager } from './scores';
 import { ExperimentsManager } from './experiments';
 import { QueryManager } from './query';
-
-const VERSION = '0.1.4';
+import { SDK_VERSION, SDK_NAME } from './version';
 
 /**
  * Main Brokle client class
@@ -121,16 +120,19 @@ export class Brokle {
       );
     }
 
-    this.provider = new NodeTracerProvider({ resource, sampler });
     const exporter = createTraceExporter(this.config);
     const processor = new BrokleSpanProcessor(exporter, this.config);
-    this.provider.addSpanProcessor(processor);
+    this.provider = new NodeTracerProvider({
+      resource,
+      sampler,
+      spanProcessors: [processor],
+    });
 
     if (this.config.tracingEnabled) {
       this.provider.register();
     }
 
-    this.tracer = this.provider.getTracer('brokle', VERSION);
+    this.tracer = this.provider.getTracer(SDK_NAME, SDK_VERSION);
 
     if (this.config.metricsEnabled) {
       this.meterProvider = createMeterProvider({
@@ -139,7 +141,7 @@ export class Brokle {
         exportInterval: this.config.metricsInterval,
       });
       metrics.setGlobalMeterProvider(this.meterProvider);
-      this.genAIMetrics = new GenAIMetrics('brokle', VERSION);
+      this.genAIMetrics = new GenAIMetrics(SDK_NAME, SDK_VERSION);
 
       if (this.config.debug) {
         console.log('[Brokle] MeterProvider initialized');
@@ -782,16 +784,19 @@ export class Brokle {
         ? new TraceIdRatioBasedSampler(config.sampleRate)
         : new AlwaysOnSampler();
 
-    const provider = new NodeTracerProvider({ resource, sampler });
     const exporter = await createTraceExporterAsync(config);
     const processor = new BrokleSpanProcessor(exporter, config);
-    provider.addSpanProcessor(processor);
+    const provider = new NodeTracerProvider({
+      resource,
+      sampler,
+      spanProcessors: [processor],
+    });
 
     if (config.tracingEnabled) {
       provider.register();
     }
 
-    const tracer = provider.getTracer('brokle', VERSION);
+    const tracer = provider.getTracer(SDK_NAME, SDK_VERSION);
 
     let meterProvider: MeterProvider | null = null;
     let genAIMetrics: GenAIMetrics | null = null;
@@ -802,7 +807,7 @@ export class Brokle {
         exportInterval: config.metricsInterval,
       });
       metrics.setGlobalMeterProvider(meterProvider);
-      genAIMetrics = new GenAIMetrics('brokle', VERSION);
+      genAIMetrics = new GenAIMetrics(SDK_NAME, SDK_VERSION);
 
       if (config.debug) {
         console.log('[Brokle] gRPC MeterProvider initialized');
