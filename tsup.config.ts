@@ -52,6 +52,6 @@ export default defineConfig({
     '@protobufjs/pool',
     '@protobufjs/utf8',
   ],
-  target: 'node22',
+  target: 'node20',
   platform: 'node',
 });

@@ -268,8 +268,8 @@ pnpm lint --fix   # Auto-fix issues
 ## Environment & Configuration
 
 ### Node.js Versions
-- **Required**: >=22.0.0
-- **Tested**: 22, 24
+- **Required**: >=20.0.0
+- **Tested**: 20, 22, 24
 
 ### Environment Variables
 

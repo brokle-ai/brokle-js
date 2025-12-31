@@ -333,7 +333,7 @@ Uses `TraceIdRatioBasedSampler` for deterministic sampling:
 
 ## Requirements
 
-- Node.js >= 22.0.0
+- Node.js >= 20.0.0
 - TypeScript >= 5.0 (for decorators)
 
 ## License
