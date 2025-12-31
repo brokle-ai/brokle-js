@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -51,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -108,7 +108,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -120,15 +120,13 @@ jobs:
       - name: Check build artifacts
         run: |
           echo "Checking build outputs..."
-          for pkg in packages/*/dist; do
-            if [ -d "$pkg" ]; then
-              echo "✅ $pkg exists"
-              ls -lh "$pkg" | head -10
-            else
-              echo "❌ $pkg missing"
-              exit 1
-            fi
-          done
+          if [ -d "dist" ]; then
+            echo "✅ dist/ exists"
+            ls -lh dist | head -10
+          else
+            echo "❌ dist/ missing"
+            exit 1
+          fi
 
   all-checks:
     name: All Checks Passed
