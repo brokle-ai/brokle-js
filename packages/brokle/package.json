@@ -14,10 +14,33 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./openai": {
+      "types": "./dist/integrations/openai/index.d.ts",
+      "import": "./dist/integrations/openai/index.js",
+      "require": "./dist/integrations/openai/index.cjs"
+    },
+    "./anthropic": {
+      "types": "./dist/integrations/anthropic/index.d.ts",
+      "import": "./dist/integrations/anthropic/index.js",
+      "require": "./dist/integrations/anthropic/index.cjs"
+    },
+    "./langchain": {
+      "types": "./dist/integrations/langchain/index.d.ts",
+      "import": "./dist/integrations/langchain/index.js",
+      "require": "./dist/integrations/langchain/index.cjs"
+    },
     "./scorers": {
       "types": "./dist/scorers/index.d.ts",
       "import": "./dist/scorers/index.js",
       "require": "./dist/scorers/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "openai": ["./dist/integrations/openai/index.d.ts"],
+      "anthropic": ["./dist/integrations/anthropic/index.d.ts"],
+      "langchain": ["./dist/integrations/langchain/index.d.ts"],
+      "scorers": ["./dist/scorers/index.d.ts"]
     }
   },
   "files": [
@@ -38,7 +61,21 @@
     "prepublishOnly": "pnpm run build"
   },
   "peerDependencies": {
-    "@opentelemetry/api": "^1.0.0"
+    "@opentelemetry/api": "^1.0.0",
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@langchain/core": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": {
+      "optional": true
+    },
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@langchain/core": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@opentelemetry/exporter-logs-otlp-proto": "^0.50.0",
@@ -65,6 +102,9 @@
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.55.0",
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@langchain/core": "^0.3.0",
     "prettier": "^3.1.0",
     "tsup": "^8.0.0",
     "typescript": "^5.3.0",
@@ -92,6 +132,9 @@
     "llm",
     "genai",
     "monitoring",
-    "apm"
+    "apm",
+    "openai",
+    "anthropic",
+    "langchain"
   ]
 }

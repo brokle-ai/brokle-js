@@ -5,10 +5,10 @@
  * Handles the full lifecycle of LangChain runs: LLM calls, chains, tools, etc.
  */
 
-import { BaseCallbackHandler } from 'langchain/callbacks';
-import type { Serialized } from 'langchain/load/serializable';
-import type { LLMResult } from 'langchain/schema';
-import { getClient, Attrs, LLMProvider } from 'brokle';
+import { BaseCallbackHandler } from '@langchain/core/callbacks/base';
+import type { Serialized } from '@langchain/core/load/serializable';
+import type { LLMResult } from '@langchain/core/outputs';
+import { getClient, Attrs, LLMProvider } from '../../index';
 import type { Span, Tracer, Context } from '@opentelemetry/api';
 import { SpanStatusCode, trace, context } from '@opentelemetry/api';
 
@@ -41,7 +41,7 @@ export interface BrokleLangChainCallbackConfig {
  *
  * @example
  * ```typescript
- * import { BrokleLangChainCallback } from 'brokle-langchain';
+ * import { BrokleLangChainCallback } from 'brokle/langchain';
  *
  * const callback = new BrokleLangChainCallback({
  *   userId: 'user-123',

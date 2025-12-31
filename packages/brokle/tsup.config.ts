@@ -1,7 +1,13 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/scorers/index.ts'],
+  entry: {
+    'index': 'src/index.ts',
+    'integrations/openai/index': 'src/integrations/openai/index.ts',
+    'integrations/anthropic/index': 'src/integrations/anthropic/index.ts',
+    'integrations/langchain/index': 'src/integrations/langchain/index.ts',
+    'scorers/index': 'src/scorers/index.ts',
+  },
   format: ['cjs', 'esm'],
   dts: true,
   sourcemap: true,
@@ -11,12 +17,27 @@ export default defineConfig({
   minify: false,
   outDir: 'dist',
   external: [
+    // Core OpenTelemetry (peer dependency)
     '@opentelemetry/api',
     '@opentelemetry/sdk-trace-node',
     '@opentelemetry/sdk-trace-base',
     '@opentelemetry/exporter-trace-otlp-proto',
+    '@opentelemetry/exporter-trace-otlp-grpc',
+    '@opentelemetry/exporter-metrics-otlp-proto',
+    '@opentelemetry/exporter-metrics-otlp-grpc',
+    '@opentelemetry/exporter-logs-otlp-proto',
+    '@opentelemetry/exporter-logs-otlp-grpc',
     '@opentelemetry/resources',
     '@opentelemetry/semantic-conventions',
+    '@opentelemetry/sdk-logs',
+    '@opentelemetry/sdk-metrics',
+    // Optional peer dependencies (external, user provides)
+    'openai',
+    '@anthropic-ai/sdk',
+    '@langchain/core',
+    '@langchain/core/callbacks/base',
+    '@langchain/core/load/serializable',
+    '@langchain/core/outputs',
   ],
   target: 'node18',
   platform: 'node',
