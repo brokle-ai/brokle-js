@@ -23,9 +23,11 @@ import { createMeterProvider, GenAIMetrics } from './metrics';
 import { createLoggerProvider } from './logs';
 import { serializeWithMime, isChatMLFormat } from './utils/serializer';
 import { PromptManager, Prompt } from './prompt';
-import { EvaluationsManager } from './evaluations';
+import { DatasetsManager } from './datasets';
+import { ScoresManager } from './scores';
+import { ExperimentsManager } from './experiments';
+import { QueryManager } from './query';
 
-// SDK version
 const VERSION = '0.1.4';
 
 /**
@@ -39,16 +41,20 @@ const VERSION = '0.1.4';
  * - Symbol-based singleton
  * - No process exit handlers (explicit shutdown)
  * - Helper methods for common patterns
+ * - Master switch: set enabled=false to disable SDK completely (no-op)
  */
 export class Brokle {
   private config: BrokleConfig;
-  private provider: NodeTracerProvider;
+  private provider: NodeTracerProvider | null = null;
   private tracer: Tracer;
   private meterProvider: MeterProvider | null = null;
   private loggerProvider: LoggerProvider | null = null;
   private genAIMetrics: GenAIMetrics | null = null;
   private promptManager: PromptManager | null = null;
-  private evaluationsManager: EvaluationsManager | null = null;
+  private datasetsManager: DatasetsManager | null = null;
+  private scoresManager: ScoresManager | null = null;
+  private experimentsManager: ExperimentsManager | null = null;
+  private queryManager: QueryManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -58,6 +64,16 @@ export class Brokle {
   constructor(configInput?: BrokleConfigInput) {
     const input = configInput || loadFromEnv();
     this.config = validateConfig(input);
+
+    // Master switch: if disabled, create no-op client
+    if (!this.config.enabled) {
+      if (this.config.debug) {
+        console.log('[Brokle] SDK disabled via enabled=false, using no-op tracer');
+      }
+      // Use global no-op tracer (doesn't create any resources)
+      this.tracer = trace.getTracer('brokle-disabled');
+      return;
+    }
 
     if (this.config.debug) {
       console.log('[Brokle] Initializing SDK with config:', {
@@ -194,6 +210,16 @@ export class Brokle {
       output?: unknown;
     }
   ): Promise<T> {
+    if (!this.config.enabled) {
+      return await this.tracer.startActiveSpan(name, async (span) => {
+        try {
+          return await fn(span);
+        } finally {
+          span.end();
+        }
+      });
+    }
+
     const attrs = { ...(attributes ?? {}) };
 
     if (options?.version) {
@@ -413,10 +439,19 @@ export class Brokle {
   /**
    * Get the TracerProvider for advanced use cases
    *
-   * @returns NodeTracerProvider instance
+   * @returns NodeTracerProvider instance or null if SDK disabled
    */
-  getProvider(): NodeTracerProvider {
+  getProvider(): NodeTracerProvider | null {
     return this.provider;
+  }
+
+  /**
+   * Get the current configuration
+   *
+   * @returns BrokleConfig instance
+   */
+  getConfig(): BrokleConfig {
+    return this.config;
   }
 
   /**
@@ -469,26 +504,156 @@ export class Brokle {
   }
 
   /**
-   * Get the Evaluations manager for evaluation and scoring operations
+   * Get the Datasets manager for dataset management
    *
-   * @returns EvaluationsManager instance (lazily initialized)
+   * @returns DatasetsManager instance (lazily initialized)
    *
    * @example
    * ```typescript
-   * // Future functionality:
-   * // const result = await client.evaluations.run(traceId, 'accuracy');
-   * // const score = await client.evaluations.score(spanId, 'relevance', 0.95);
+   * // Create a dataset
+   * const dataset = await client.datasets.create({
+   *   name: "qa-pairs",
+   *   description: "Question-answer test cases"
+   * });
+   *
+   * // Get existing dataset
+   * const existing = await client.datasets.get("01HXYZ...");
+   *
+   * // List datasets
+   * const datasets = await client.datasets.list();
    * ```
    */
-  get evaluations(): EvaluationsManager {
-    if (!this.evaluationsManager) {
-      this.evaluationsManager = new EvaluationsManager({
+  get datasets(): DatasetsManager {
+    if (!this.datasetsManager) {
+      this.datasetsManager = new DatasetsManager({
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
         debug: this.config.debug,
       });
     }
-    return this.evaluationsManager;
+    return this.datasetsManager;
+  }
+
+  /**
+   * Get the Scores manager for score submission
+   *
+   * @returns ScoresManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * // Direct score submission
+   * await client.scores.submit({
+   *   traceId: "abc123",
+   *   name: "accuracy",
+   *   value: 0.95,
+   * });
+   *
+   * // Using a scorer function
+   * const exact = ExactMatch({ name: "answer_match" });
+   * await client.scores.submit({
+   *   traceId: "abc123",
+   *   scorer: exact,
+   *   output: "Paris",
+   *   expected: "Paris",
+   * });
+   *
+   * // Batch submission
+   * await client.scores.batch([
+   *   { traceId: "abc", name: "quality", value: 0.9 },
+   *   { traceId: "def", name: "quality", value: 0.8 },
+   * ]);
+   * ```
+   */
+  get scores(): ScoresManager {
+    if (!this.scoresManager) {
+      this.scoresManager = new ScoresManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.scoresManager;
+  }
+
+  /**
+   * Access experiments operations.
+   *
+   * Returns an ExperimentsManager for running evaluation experiments.
+   *
+   * @example
+   * ```typescript
+   * import { ExactMatch } from 'brokle/scorers';
+   *
+   * const results = await client.experiments.run({
+   *   name: "gpt4-test",
+   *   dataset,
+   *   task: myTask,
+   *   scorers: [ExactMatch()],
+   * });
+   *
+   * // View results
+   * for (const [name, stats] of Object.entries(results.summary)) {
+   *   console.log(`${name}: mean=${stats.mean.toFixed(3)}`);
+   * }
+   *
+   * // Get experiment by ID
+   * const exp = await client.experiments.get("01HXYZ...");
+   *
+   * // List experiments
+   * const experiments = await client.experiments.list();
+   * ```
+   */
+  get experiments(): ExperimentsManager {
+    if (!this.experimentsManager) {
+      this.experimentsManager = new ExperimentsManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.experimentsManager;
+  }
+
+  /**
+   * Access query operations for production telemetry.
+   *
+   * Returns a QueryManager for querying spans using filter expressions.
+   * This is "THE WEDGE" - enabling evaluation of existing production telemetry.
+   *
+   * @example
+   * ```typescript
+   * // Query spans with filter expression
+   * const result = await client.query.query({
+   *   filter: 'service.name=chatbot AND gen_ai.system=openai',
+   *   startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+   * });
+   *
+   * console.log(`Found ${result.total} spans`);
+   *
+   * // Stream with auto-pagination
+   * for await (const span of client.query.queryIter({ filter: 'gen_ai.system=openai' })) {
+   *   console.log(span.name, span.output);
+   * }
+   *
+   * // Use with experiments for span-based evaluation
+   * const evalResults = await client.experiments.run({
+   *   name: 'retrospective-analysis',
+   *   spans: result.spans,
+   *   extractInput: (span) => ({ prompt: span.input }),
+   *   extractOutput: (span) => span.output,
+   *   scorers: [Relevance()],
+   * });
+   * ```
+   */
+  get query(): QueryManager {
+    if (!this.queryManager) {
+      this.queryManager = new QueryManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.queryManager;
   }
 
   /**
@@ -502,6 +667,10 @@ export class Brokle {
    * ```
    */
   async flush(): Promise<void> {
+    if (!this.config.enabled || !this.provider) {
+      return;
+    }
+
     if (this.config.debug) {
       console.log('[Brokle] Flushing pending telemetry...');
     }
@@ -532,6 +701,10 @@ export class Brokle {
    * ```
    */
   async shutdown(): Promise<void> {
+    if (!this.config.enabled || !this.provider) {
+      return;
+    }
+
     if (this.config.debug) {
       console.log('[Brokle] Shutting down SDK...');
     }
@@ -577,6 +750,11 @@ export class Brokle {
   static async createAsync(configInput?: BrokleConfigInput): Promise<Brokle> {
     const input = configInput || loadFromEnv();
     const config = validateConfig(input);
+
+    // Master switch: delegate to sync constructor which handles no-op
+    if (!config.enabled) {
+      return new Brokle(configInput);
+    }
 
     if (config.transport !== TransportType.GRPC) {
       return new Brokle(configInput);
@@ -708,6 +886,9 @@ function getGlobalState(): BrokleGlobalState {
  *
  * // Subsequent calls return the same instance
  * const sameClient = getClient(); // No config needed
+ *
+ * // Disable SDK completely
+ * const disabledClient = getClient({ enabled: false });
  * ```
  */
 export function getClient(config?: BrokleConfigInput): Brokle {
@@ -716,7 +897,9 @@ export function getClient(config?: BrokleConfigInput): Brokle {
   if (!state.client) {
     const clientConfig = config || loadFromEnv();
     state.client = new Brokle(clientConfig);
-    state.provider = state.client.getProvider();
+    if (state.client.getConfig().enabled) {
+      state.provider = state.client.getProvider();
+    }
   }
 
   return state.client;

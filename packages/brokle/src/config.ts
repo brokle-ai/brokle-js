@@ -71,16 +71,34 @@ function parseIntEnv(value: string | undefined): number | undefined {
 }
 
 /**
+ * Parse boolean from environment variable string.
+ * Returns true for: 'true', '1', 'yes', 'on' (case-insensitive)
+ * Returns false for: 'false', '0', 'no', 'off' (case-insensitive)
+ */
+function parseBoolEnv(value: string | undefined, defaultValue: boolean): boolean {
+  if (value === undefined || value === '') return defaultValue;
+  const lower = value.toLowerCase().trim();
+  if (['true', '1', 'yes', 'on'].includes(lower)) return true;
+  if (['false', '0', 'no', 'off'].includes(lower)) return false;
+  return defaultValue;
+}
+
+/**
  * Loads configuration from environment variables
  */
 export function loadFromEnv(): BrokleConfigInput {
+  // Check BROKLE_ENABLED FIRST (before API key validation)
+  const enabled = parseBoolEnv(process.env.BROKLE_ENABLED, true);
+
   const apiKey = process.env.BROKLE_API_KEY;
-  if (!apiKey) {
+  if (!apiKey && enabled) {
     throw new Error('BROKLE_API_KEY environment variable is required');
   }
 
   return {
-    apiKey,
+    enabled,
+    // Use placeholder when disabled (will pass validation since enabled=false)
+    apiKey: apiKey || 'bk_disabled_placeholder_0000000000000000',
     baseUrl: process.env.BROKLE_BASE_URL,
     environment: process.env.BROKLE_ENVIRONMENT,
     debug: process.env.BROKLE_DEBUG === 'true',
@@ -107,11 +125,45 @@ export function loadFromEnv(): BrokleConfigInput {
  * Validates and normalizes configuration
  */
 export function validateConfig(input: BrokleConfigInput): BrokleConfig {
+  const enabled = input.enabled ?? DEFAULT_CONFIG.enabled;
+
+  // Skip all validation if disabled
+  if (!enabled) {
+    return {
+      ...DEFAULT_CONFIG,
+      ...input,
+      enabled: false,
+      apiKey: input.apiKey || 'bk_disabled_placeholder_0000000000000000',
+      baseUrl: input.baseUrl || DEFAULT_CONFIG.baseUrl,
+      environment: input.environment || DEFAULT_CONFIG.environment,
+      debug: input.debug ?? DEFAULT_CONFIG.debug,
+      tracingEnabled: input.tracingEnabled ?? DEFAULT_CONFIG.tracingEnabled,
+      metricsEnabled: input.metricsEnabled ?? DEFAULT_CONFIG.metricsEnabled,
+      logsEnabled: input.logsEnabled ?? DEFAULT_CONFIG.logsEnabled,
+      release: input.release || DEFAULT_CONFIG.release,
+      version: input.version || DEFAULT_CONFIG.version,
+      sampleRate: input.sampleRate ?? DEFAULT_CONFIG.sampleRate,
+      flushAt: input.flushAt ?? DEFAULT_CONFIG.flushAt,
+      flushInterval: input.flushInterval ?? DEFAULT_CONFIG.flushInterval,
+      flushSync: input.flushSync ?? DEFAULT_CONFIG.flushSync,
+      maxQueueSize: input.maxQueueSize ?? DEFAULT_CONFIG.maxQueueSize,
+      timeout: input.timeout ?? DEFAULT_CONFIG.timeout,
+      transport: input.transport ?? DEFAULT_CONFIG.transport,
+      grpcEndpoint: input.grpcEndpoint,
+      metricsInterval: input.metricsInterval ?? DEFAULT_CONFIG.metricsInterval,
+    };
+  }
+
+  // Validate API key only when enabled
+  if (!input.apiKey) {
+    throw new Error('API key is required');
+  }
   validateApiKey(input.apiKey);
 
   const config: BrokleConfig = {
     ...DEFAULT_CONFIG,
     ...input,
+    enabled: true,
     apiKey: input.apiKey,
     baseUrl: input.baseUrl || DEFAULT_CONFIG.baseUrl,
     environment: input.environment || DEFAULT_CONFIG.environment,

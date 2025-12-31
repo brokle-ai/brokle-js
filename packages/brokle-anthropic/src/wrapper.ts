@@ -44,6 +44,10 @@ export type { BrokleOptions };
 export function wrapAnthropic<T extends Anthropic>(client: T): T {
   const brokleClient = getClient();
 
+  if (!brokleClient.getConfig().enabled) {
+    return client;
+  }
+
   return createProxy(client, brokleClient, []);
 }
 

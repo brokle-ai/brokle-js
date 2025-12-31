@@ -119,9 +119,74 @@ export type {
 } from './prompt';
 export type { PromptManagerConfig, CacheOptions } from './prompt';
 
-// Evaluations Management (stub for future functionality)
-export { EvaluationsManager } from './evaluations';
-export type { EvaluationsManagerConfig } from './evaluations';
+// Datasets Management (new namespace)
+export { DatasetsManager, Dataset, DatasetError } from './datasets';
+export type {
+  DatasetsManagerConfig,
+  DatasetItem,
+  DatasetItemInput,
+  DatasetData,
+  DatasetConfig,
+  CreateDatasetOptions,
+  GetItemsOptions,
+  ListDatasetsOptions,
+} from './datasets';
+
+// Scores Management (new namespace)
+export { ScoresManager, ScoreType, ScoreSource, ScoreError, ScorerError } from './scores';
+export type {
+  ScoresManagerConfig,
+  ScoreResult,
+  ScoreValue,
+  Scorer,
+  ScorerArgs,
+  SubmitScoreOptions,
+  BatchScoreOptions,
+  ScoreRequest,
+  ScoreResponse,
+} from './scores';
+
+// Scorers (re-export for convenience - also available via 'brokle/scorers')
+export {
+  ExactMatch,
+  Contains,
+  RegexMatch,
+  JSONValid,
+  LengthCheck,
+  LLMScorer,
+  scorer,
+  multiScorer,
+} from './scorers';
+export type { LLMScorerOptions, LLMScorerClientConfig } from './scorers';
+
+// Experiments Management (new namespace)
+export { ExperimentsManager, EvaluationError, TaskError, ScorerExecutionError } from './experiments';
+export type {
+  ExperimentsManagerConfig,
+  Experiment,
+  EvaluationResults,
+  EvaluationItem,
+  SummaryStats,
+  RunOptions,
+  ListExperimentsOptions,
+  TaskFunction,
+  ProgressCallback,
+  SpanExtractInput,
+  SpanExtractOutput,
+  SpanExtractExpected,
+} from './experiments';
+
+// Query Management (span queries for THE WEDGE)
+export { QueryManager, QueryError, QueryAPIError, InvalidFilterError } from './query';
+export type {
+  QueryManagerConfig,
+  QueryOptions,
+  QueryResult,
+  QueriedSpan,
+  ValidationResult,
+  TokenUsage,
+  SpanEvent,
+} from './query';
 
 // Wrapper utilities (for SDK wrapper packages)
 export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
