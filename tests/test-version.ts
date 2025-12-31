@@ -2,7 +2,7 @@
  * Quick test for version parameter support
  */
 
-import { getClient, Attrs } from '../packages/brokle/src/index';
+import { getClient, Attrs } from '../src/index';
 
 const client = getClient({
   apiKey: 'bk_fzwUZlCBIE3Z0QfGnfAIKjZ4DuK4ChJHf3mPnnbV',

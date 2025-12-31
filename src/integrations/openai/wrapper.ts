@@ -14,7 +14,7 @@ import {
   extractBrokleOptions,
   addPromptAttributes,
   type BrokleOptions,
-} from 'brokle';
+} from '../../index';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { extractChatCompletionAttributes, extractCompletionAttributes } from './parser';
 
@@ -33,7 +33,7 @@ export type { BrokleOptions };
  * @example
  * ```typescript
  * import OpenAI from 'openai';
- * import { wrapOpenAI } from 'brokle-openai';
+ * import { wrapOpenAI } from 'brokle/openai';
  *
  * const openai = wrapOpenAI(new OpenAI({ apiKey: '...' }));
  *
@@ -45,6 +45,25 @@ export type { BrokleOptions };
  * ```
  */
 export function wrapOpenAI<T extends OpenAI>(client: T): T {
+  // Runtime validation: check if this looks like an OpenAI client
+  if (!client || typeof client !== 'object') {
+    throw new Error(
+      'wrapOpenAI requires an OpenAI client instance. ' +
+      'Usage: wrapOpenAI(new OpenAI({ apiKey: "..." }))'
+    );
+  }
+
+  // Validate OpenAI client structure (v4.x API)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = client as any;
+  if (!c.chat?.completions?.create && !c.completions?.create) {
+    throw new Error(
+      'Invalid OpenAI client passed to wrapOpenAI. ' +
+      'The "openai" package (^4.0.0) is required. ' +
+      'Install it with: npm install openai'
+    );
+  }
+
   const brokleClient = getClient();
 
   if (!brokleClient.getConfig().enabled) {

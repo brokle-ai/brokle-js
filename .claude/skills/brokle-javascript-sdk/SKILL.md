@@ -9,19 +9,24 @@ Comprehensive guidance for developing the Brokle JavaScript/TypeScript SDK - an 
 
 ## Overview
 
-The Brokle JavaScript SDK is built on **@opentelemetry/sdk-node** with full GenAI 1.28+ semantic conventions compliance. It's a **monorepo with 4 packages** (all fully implemented) providing multiple integration patterns.
+The Brokle JavaScript SDK is built on **@opentelemetry/sdk-node** with full GenAI 1.28+ semantic conventions compliance. It's a **single package with sub-path exports** (follows LangSmith/Braintrust pattern) providing multiple integration patterns.
 
 **Architecture**: OTEL-native with TracerProvider → BrokleSpanProcessor → OTLP/HTTP Exporter (Protobuf+Gzip)
 
-## Monorepo Structure (All Packages Shipped ✅)
+## Single Package Structure with Sub-Path Exports
 
 ```
 sdk/javascript/
-├── packages/
-│   ├── brokle/              ✅ Core SDK
-│   ├── brokle-openai/       ✅ OpenAI wrapper (Proxy pattern)
-│   ├── brokle-anthropic/    ✅ Anthropic wrapper
-│   └── brokle-langchain/    ✅ LangChain callbacks
+├── src/
+│   ├── index.ts               # Main exports (brokle)
+│   ├── client.ts              # Brokle client
+│   ├── config.ts              # Configuration
+│   ├── integrations/
+│   │   ├── openai/            # brokle/openai
+│   │   ├── anthropic/         # brokle/anthropic
+│   │   └── langchain/         # brokle/langchain
+│   └── scorers/               # brokle/scorers
+├── dist/                      # Build output
 ├── examples/
 │   ├── basic-usage.ts
 │   ├── wrapper-usage.ts
@@ -29,7 +34,7 @@ sdk/javascript/
 └── tests/
 ```
 
-**Note**: All 4 packages are fully implemented and production-ready.
+**Usage**: Tree-shakeable sub-path imports - users only import what they need.
 
 ## Public API Surface
 
@@ -60,19 +65,19 @@ export { createBrokleExporter } from './exporter';
 export { BrokleSpanProcessor } from './processor';
 ```
 
-### OpenAI Wrapper (`brokle-openai`)
+### OpenAI Wrapper (`brokle/openai`)
 ```typescript
-export { wrapOpenAI } from './wrapper';
+import { wrapOpenAI } from 'brokle/openai';
 ```
 
-### Anthropic Wrapper (`brokle-anthropic`)
+### Anthropic Wrapper (`brokle/anthropic`)
 ```typescript
-export { wrapAnthropic } from './wrapper';
+import { wrapAnthropic } from 'brokle/anthropic';
 ```
 
-### LangChain Integration (`brokle-langchain`)
+### LangChain Integration (`brokle/langchain`)
 ```typescript
-export { BrokleLangChainCallback } from './callback';
+import { BrokleLangChainCallback } from 'brokle/langchain';
 ```
 
 ## OTEL-Native Architecture
@@ -233,7 +238,7 @@ const response = await client.generation(
 
 **Zero-Code Integration**:
 ```typescript
-import { wrapOpenAI } from 'brokle-openai';
+import { wrapOpenAI } from 'brokle/openai';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -263,7 +268,7 @@ const response = await tracedOpenAI.chat.completions.create({
 
 **Callback Handler**:
 ```typescript
-import { BrokleLangChainCallback } from 'brokle-langchain';
+import { BrokleLangChainCallback } from 'brokle/langchain';
 import { ChatOpenAI } from '@langchain/openai';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { LLMChain } from 'langchain/chains';
@@ -509,67 +514,51 @@ span.setAttribute(Attrs.TAGS, JSON.stringify(['production']));
 span.setAttribute(Attrs.METADATA, JSON.stringify({ feature: 'chat' }));
 ```
 
-## Development Commands (Monorepo)
+## Development Commands
 
 ### Installation
 ```bash
-# Install all dependencies (pnpm workspace)
+# Install dependencies
 pnpm install
 ```
 
 ### Build
 ```bash
-# Build all packages
-pnpm run build
-
-# Build specific package
-cd packages/brokle && pnpm run build
-
-# Recursive build
-pnpm -r build
+# Build the package
+pnpm build
 
 # Watch mode
-pnpm run dev                # All packages
-pnpm -r --parallel dev      # Parallel watch
+pnpm dev
 ```
 
 ### Testing
 ```bash
 # Run all tests
-pnpm run test
-
-# Run tests in specific package
-cd packages/brokle && pnpm test
+pnpm test
 
 # Watch mode
-pnpm run test:watch
-
-# Recursive test
-pnpm -r test
+pnpm test:watch
 ```
 
 ### Code Quality
 ```bash
-# Lint all packages
-pnpm run lint
+# Lint
+pnpm lint
 
 # Type checking
-pnpm run typecheck
+pnpm typecheck
 
 # Format code
-pnpm run format
+pnpm format
 
 # Format check
-pnpm run format:check
+pnpm format:check
 ```
 
-### Publishing
+### Clean
 ```bash
-# Build before publish
-pnpm run build
-
-# Publish package
-cd packages/brokle && pnpm publish
+# Remove build artifacts and node_modules
+pnpm clean
 ```
 
 ## Build Configuration (tsup)
@@ -587,7 +576,7 @@ export default defineConfig({
   splitting: false,
   minify: false,
   outDir: 'dist',
-  target: 'node18',
+  target: 'node20',
   platform: 'node',
 });
 ```
@@ -715,14 +704,15 @@ await client.flush();  // Before exit
 | **Lifecycle** | Explicit (no auto handlers) | Automatic atexit cleanup |
 | **Processors** | Batch OR Simple (via flushSync) | Always Batch |
 | **Decorators** | TypeScript decorators | Python decorators |
-| **Wrappers** | Proxy pattern (separate packages) | Wrapper functions (in core) |
+| **Wrappers** | Proxy pattern (sub-path exports) | Wrapper functions (in core) |
 | **Build** | ESM + CJS dual build | Python package |
-| **Monorepo** | 4 packages | Single package |
+| **Structure** | Single package with sub-path exports | Single package |
 
 ## Reference
 
 - **SDK Location**: `sdk/javascript/`
-- **Core Package**: `packages/brokle/src/`
-- **Documentation**: `README.md`, implementation files
+- **Source Code**: `src/`
+- **Integrations**: `src/integrations/` (openai, anthropic, langchain)
+- **Documentation**: `README.md`, `CLAUDE.md`
 - **Examples**: `examples/` directory
-- **Tests**: `tests/` directory
+- **Tests**: `src/**/*.test.ts` (unit), `tests/` (e2e)

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is the **Brokle Platform JavaScript/TypeScript SDK** - a comprehensive SDK providing OpenTelemetry-native observability for AI applications built with JavaScript and TypeScript.
+This is the **Brokle JavaScript/TypeScript SDK** - a single npm package providing OpenTelemetry-native observability for AI applications.
 
 **Key Features:**
 - OpenTelemetry-native design with GenAI semantic conventions
@@ -12,29 +12,54 @@ This is the **Brokle Platform JavaScript/TypeScript SDK** - a comprehensive SDK 
 - Gzip compression (65% size reduction)
 - Type-safe attribute constants
 - Serverless + long-running app support
-- Auto-instrumentation for OpenAI, Anthropic, and LangChain
+- Auto-instrumentation for OpenAI, Anthropic, and LangChain via sub-path exports
 
 ## Repository Structure
 
-This is a **pnpm monorepo** with multiple packages:
+This is a **single-package SDK** with sub-path exports (follows LangSmith/Braintrust pattern):
 
 ```
 brokle-js/
-├── packages/
-│   ├── brokle/              # Core SDK (0.1.0)
-│   ├── brokle-openai/       # OpenAI wrapper (0.1.0)
-│   ├── brokle-anthropic/    # Anthropic wrapper (0.1.0)
-│   └── brokle-langchain/    # LangChain integration (0.1.0)
-├── .changeset/              # Changesets configuration (version management)
-├── .github/workflows/       # CI/CD automation
-│   ├── ci.yml              # Lint, test, typecheck, build
-│   ├── release.yml         # Automated npm publishing
-│   └── integration.yml     # Integration tests
-├── pnpm-workspace.yaml     # Monorepo workspace configuration
-└── package.json            # Root workspace package
+├── src/
+│   ├── index.ts               # Main exports
+│   ├── client.ts              # Brokle client
+│   ├── config.ts              # Configuration
+│   ├── exporter.ts            # OTLP exporter
+│   ├── integrations/
+│   │   ├── openai/            # OpenAI wrapper (brokle/openai)
+│   │   ├── anthropic/         # Anthropic wrapper (brokle/anthropic)
+│   │   └── langchain/         # LangChain callback (brokle/langchain)
+│   ├── scorers/               # Scoring utilities (brokle/scorers)
+│   ├── types/                 # TypeScript definitions
+│   └── utils/                 # Utility functions
+├── scripts/
+│   └── release.sh             # Release automation
+├── .github/workflows/         # CI/CD automation
+├── package.json               # Package configuration with exports map
+├── tsconfig.json              # TypeScript configuration
+└── tsup.config.ts             # Multi-entry build configuration
 ```
 
-**All packages share the same version** (synchronized releases via Changesets).
+## Sub-Path Exports
+
+The SDK provides tree-shakeable sub-path imports:
+
+```typescript
+// Core SDK
+import { BrokleClient, traced, getClient } from 'brokle';
+
+// OpenAI integration
+import { wrapOpenAI } from 'brokle/openai';
+
+// Anthropic integration
+import { wrapAnthropic } from 'brokle/anthropic';
+
+// LangChain integration
+import { BrokleLangChainCallback } from 'brokle/langchain';
+
+// Scorers
+import { BaseScorer } from 'brokle/scorers';
+```
 
 ---
 
@@ -51,19 +76,22 @@ pnpm install --frozen-lockfile
 
 ### Development
 ```bash
-# Build all packages
+# Build the package
 pnpm build
 
-# Watch mode (parallel)
+# Watch mode
 pnpm dev
 
-# Run tests (all packages)
+# Run tests
 pnpm test
 
-# Lint all packages
+# Run tests in watch mode
+pnpm test:watch
+
+# Lint
 pnpm lint
 
-# Type check all packages
+# Type check
 pnpm typecheck
 
 # Format code
@@ -73,34 +101,19 @@ pnpm format
 pnpm format:check
 ```
 
-### Package-Specific Commands
-```bash
-# Work on specific package
-cd packages/brokle
-pnpm build
-pnpm test
-pnpm dev
-
-# Or from root with filter
-pnpm --filter brokle build
-pnpm --filter brokle-openai test
-```
-
 ### Clean
 ```bash
-# Remove all build artifacts and node_modules
+# Remove build artifacts and node_modules
 pnpm clean
 ```
 
 ---
 
-## Release Process (release-it)
+## Release Process
 
-This monorepo uses **release-it** for version management and releases, following industry-standard monorepo patterns.
+This SDK uses a shell script for releases (`scripts/release.sh`).
 
 ### Prerequisites
-
-Before running any release command:
 
 ```bash
 # 1. Ensure you're on main branch with clean working directory
@@ -109,183 +122,94 @@ git status  # Should show: "nothing to commit, working tree clean"
 # 2. Verify all tests pass
 pnpm test
 
-# 3. Verify builds work
+# 3. Verify build works
 pnpm build
 ```
 
-**Note**: No npm login required! Publishing happens automatically via GitHub Actions.
-
 ### Creating a Release
 
-**Standard releases** (patch/minor/major):
-
 ```bash
-# Preview what will happen (dry run - ALWAYS DO THIS FIRST!)
-make release-dry
-# OR: pnpm release:dry
-
-# Release patch version (0.1.0 → 0.1.1)
-make release-patch
-
-# Release minor version (0.1.0 → 0.2.0)
-make release-minor
-
-# Release major version (0.1.0 → 1.0.0)
-make release-major
-```
-
-**Interactive mode** (choose version type during release):
-
-```bash
-pnpm release
-# Follow interactive prompts:
-# 1. Select version increment (patch/minor/major)
-# 2. Confirm changelog
-# 3. Confirm Git commit
-# 4. Confirm Git tag
-# 5. Confirm GitHub release
-# 6. Confirm npm publish
+# Run release script with version bump type
+./scripts/release.sh patch   # 0.3.2 → 0.3.3
+./scripts/release.sh minor   # 0.3.2 → 0.4.0
+./scripts/release.sh major   # 0.3.2 → 1.0.0
 ```
 
 ### What Happens During Release
 
-**Local (release-it runs on your machine)**:
-
-1. ✅ **Validates**: Clean git, on main branch, upstream configured
-2. ✅ **Installs**: `pnpm install`
-3. ✅ **Builds**: `pnpm build` (all packages)
-4. ✅ **Bumps Versions**: Updates all 4 `package.json` files (0.1.0 → 0.2.0)
-5. ✅ **Commits**: `chore: release v0.2.0`
-6. ✅ **Tags**: Creates git tag `v0.2.0`
-7. ✅ **Pushes**: Git commit + tag to GitHub
-8. ✅ **GitHub Release**: Auto-generates release notes from commits
-
-**Automated (GitHub Actions triggered by tag push)**:
-
-9. ✅ **CI Tests**: Runs full test suite
-10. ✅ **npm Publish**: Publishes all 4 packages to npm with `latest` tag
-11. ✅ **Verification**: Confirms packages are live on npm
-
-**Total time**: ~3-5 minutes from `make release-patch` to live on npm!
-
-### Pre-release Versions
-
-For testing features before stable release:
-
-```bash
-# Alpha release (0.1.0 → 0.1.1-alpha.0)
-make release-alpha
-# OR: pnpm release:alpha
-
-# Beta release (0.1.0 → 0.1.1-beta.0)
-make release-beta
-
-# Release candidate (0.1.0 → 0.1.1-rc.0)
-make release-rc
-```
-
-Pre-releases are published with appropriate npm dist-tags and won't be installed by default.
-
-### Release Workflow Example
-
-```bash
-# 1. Make your changes
-git checkout -b feat/new-feature
-# ... make code changes ...
-git commit -m "feat: add new feature"
-git push origin feat/new-feature
-
-# 2. Create PR, get reviewed, merge to main
-
-# 3. Pull latest main
-git checkout main
-git pull origin main
-
-# 4. Preview release (dry run)
-make release-dry
-
-# 5. Create release
-make release-minor
-
-# release-it runs locally:
-# ✅ Bumps version to 0.2.0
-# ✅ Commits "chore: release v0.2.0"
-# ✅ Creates tag v0.2.0
-# ✅ Pushes to GitHub
-# ✅ Creates GitHub release
-
-# 6. GitHub Actions automatically (triggered by tag):
-# ✅ Runs CI tests
-# ✅ Publishes all 4 packages to npm
-# ✅ Verifies packages live
-
-# 7. Done! ✅
-# Total time: ~3-5 minutes
-```
-
-**Workflow**: Local release-it → CI publishes to npm (matches Python SDK!)
-
----
-
-## Package Structure
-
-### Core Package (`packages/brokle`)
-
-The main SDK package providing OpenTelemetry integration:
-
-```
-brokle/
-├── src/
-│   ├── index.ts           # Main exports
-│   ├── client.ts          # Brokle client
-│   ├── tracer.ts          # OpenTelemetry tracer setup
-│   ├── exporter.ts        # OTLP exporter configuration
-│   ├── types/             # TypeScript type definitions
-│   └── utils/             # Utility functions
-├── package.json
-├── tsconfig.json
-├── tsup.config.ts         # Build configuration
-└── vitest.config.ts       # Test configuration
-```
-
-### Wrapper Packages
-
-**`packages/brokle-openai`**: OpenAI SDK instrumentation
-**`packages/brokle-anthropic`**: Anthropic SDK instrumentation
-**`packages/brokle-langchain`**: LangChain.js integration
-
-Each wrapper:
-- Auto-instruments the respective SDK
-- Captures traces, spans, and metadata
-- Forwards telemetry to Brokle platform
+1. Validates clean git state and main branch
+2. Runs tests
+3. Bumps version in `package.json`
+4. Creates git commit: `chore: release v{version}`
+5. Creates git tag: `v{version}`
+6. Pushes to GitHub
+7. GitHub Actions publishes to npm
 
 ---
 
 ## Build System
 
-### tsup Configuration
+### tsup Multi-Entry Configuration
 
-All packages use `tsup` for fast, zero-config bundling:
+The SDK uses tsup with multiple entry points for sub-path exports:
 
 ```typescript
 // tsup.config.ts
-import { defineConfig } from 'tsup';
-
 export default defineConfig({
-  entry: ['src/index.ts'],
-  format: ['cjs', 'esm'],    // Dual format
-  dts: true,                 // Generate .d.ts files
-  splitting: false,
-  sourcemap: true,
-  clean: true,
-  treeshake: true,
+  entry: {
+    'index': 'src/index.ts',
+    'integrations/openai/index': 'src/integrations/openai/index.ts',
+    'integrations/anthropic/index': 'src/integrations/anthropic/index.ts',
+    'integrations/langchain/index': 'src/integrations/langchain/index.ts',
+    'scorers/index': 'src/scorers/index.ts',
+  },
+  format: ['cjs', 'esm'],
+  dts: true,
+  external: ['openai', '@anthropic-ai/sdk', '@langchain/core'],
 });
 ```
 
-**Output**:
-- `dist/index.js` - CommonJS
-- `dist/index.mjs` - ESM
-- `dist/index.d.ts` - TypeScript declarations
+### Package Exports Map
+
+```json
+{
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js", "require": "./dist/index.cjs" },
+    "./openai": { "types": "./dist/integrations/openai/index.d.ts", ... },
+    "./anthropic": { "types": "./dist/integrations/anthropic/index.d.ts", ... },
+    "./langchain": { "types": "./dist/integrations/langchain/index.d.ts", ... },
+    "./scorers": { "types": "./dist/scorers/index.d.ts", ... }
+  }
+}
+```
+
+---
+
+## Peer Dependencies
+
+Integration packages are **optional peer dependencies**:
+
+```json
+{
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.0.0",
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@langchain/core": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "openai": { "optional": true },
+    "@anthropic-ai/sdk": { "optional": true },
+    "@langchain/core": { "optional": true }
+  }
+}
+```
+
+Users only install what they need:
+```bash
+npm install brokle openai          # For OpenAI users
+npm install brokle @anthropic-ai/sdk  # For Anthropic users
+```
 
 ---
 
@@ -293,37 +217,29 @@ export default defineConfig({
 
 ### Vitest
 
-All packages use **Vitest** for testing:
-
 ```bash
 # Run all tests
 pnpm test
 
-# Run tests in watch mode
+# Watch mode
 pnpm test:watch
 
-# Run tests with coverage
+# With coverage
 pnpm test --coverage
 ```
 
 ### Test File Naming
 
-- `*.test.ts` - Unit tests
-- `*.spec.ts` - Spec tests
-- `__tests__/` - Test directories
+- `*.test.ts` - Unit tests (co-located with source)
+- `__tests__/` - Test directories for complex test suites
 
-### Writing Tests
+### Runtime Validation
+
+Wrappers include runtime validation for missing dependencies:
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { myFunction } from './index';
-
-describe('myFunction', () => {
-  it('should do something', () => {
-    const result = myFunction('input');
-    expect(result).toBe('expected');
-  });
-});
+// Throws helpful error if openai package not installed
+const openai = wrapOpenAI(new OpenAI({ apiKey: '...' }));
 ```
 
 ---
@@ -331,89 +247,32 @@ describe('myFunction', () => {
 ## Code Style
 
 ### TypeScript
-
-- **Strict mode enabled**: All packages use `strict: true`
+- **Strict mode**: `strict: true`
 - **Target**: ES2020
 - **Module**: ESNext
-- **Module Resolution**: Bundler
 
-### Prettier
-
-Formatting enforced via Prettier:
-
+### Formatting
 ```bash
-# Format all code
-pnpm format
-
-# Check formatting
-pnpm format:check
+pnpm format       # Apply formatting
+pnpm format:check # Check formatting
 ```
 
-**Config**: Uses default Prettier settings.
-
-### ESLint
-
-Linting rules configured per package:
-
+### Linting
 ```bash
-# Lint all packages
-pnpm lint
-
-# Auto-fix
-pnpm lint --fix
+pnpm lint         # Check for issues
+pnpm lint --fix   # Auto-fix issues
 ```
-
----
-
-## CI/CD Workflows
-
-### CI Workflow (`.github/workflows/ci.yml`)
-
-Runs on **every PR and push to main**:
-
-1. **Lint**: ESLint on all packages
-2. **Type Check**: TypeScript compilation
-3. **Test**: Vitest on Node 18, 20, 22 (matrix)
-4. **Build**: tsup build verification
-
-### Release Workflow (`.github/workflows/release.yml`)
-
-Runs on **push to main**:
-
-1. **Check for changesets**
-2. **If changesets exist**:
-   - Create "Version Packages" PR
-3. **When "Version Packages" PR merged**:
-   - Build packages
-   - Publish to npm (with provenance)
-   - Create git tags
-   - Create GitHub releases
-
-### Integration Tests (`.github/workflows/integration.yml`)
-
-Runs on **PRs and daily**:
-
-- Tests SDK against local Brokle server
-- Currently placeholder (to be implemented)
 
 ---
 
 ## Environment & Configuration
 
 ### Node.js Versions
-
-- **Required**: >=18.0.0
-- **Tested**: 18, 20, 22
-- **Recommended**: 20 LTS
-
-### pnpm Version
-
-- **Required**: >=8.0.0
-- **Package Manager**: pnpm@8.15.0 (specified in `package.json`)
+- **Required**: >=20.0.0
+- **Tested**: 20, 22, 24
 
 ### Environment Variables
 
-**For Development**:
 ```bash
 # Brokle API configuration
 BROKLE_API_KEY=your_api_key
@@ -423,62 +282,12 @@ BROKLE_BASE_URL=http://localhost:8080
 NODE_ENV=test
 ```
 
-**For Publishing** (GitHub Secrets):
-```bash
-NPM_TOKEN=<your_npm_token>
-GITHUB_TOKEN=<auto_provided>
-```
-
----
-
-## Publishing to npm
-
-### First-Time Setup
-
-1. **Create npm account** (if needed): https://www.npmjs.com/signup
-
-2. **Add to npm org** (if using @brokle scope):
-   ```bash
-   npm owner add <username> brokle
-   npm owner add <username> brokle-openai
-   npm owner add <username> brokle-anthropic
-   npm owner add <username> brokle-langchain
-   ```
-
-3. **Generate npm token**:
-   - Go to: https://www.npmjs.com/settings/<username>/tokens
-   - Create "Automation" token
-   - Add to GitHub Secrets as `NPM_TOKEN`
-
-4. **Add npm provenance** (security):
-   Already configured in `release.yml` with `id-token: write`
-
-### Publishing Process
-
-Changesets handles everything automatically:
-
-1. Make changes → Create changeset → Merge to main
-2. Changesets creates "Version Packages" PR
-3. Review PR → Merge
-4. Workflow publishes to npm automatically
-
-**Manual publish** (for testing):
-```bash
-# Build all packages
-pnpm build
-
-# Publish (requires NPM_TOKEN env var)
-pnpm release
-```
-
 ---
 
 ## Troubleshooting
 
 ### Build Failures
 
-**Problem**: `pnpm build` fails
-**Solution**:
 ```bash
 # Clean and rebuild
 pnpm clean
@@ -488,70 +297,50 @@ pnpm build
 
 ### Type Errors
 
-**Problem**: TypeScript errors in VSCode
-**Solution**:
 ```bash
-# Rebuild TypeScript declarations
+# Rebuild and restart TS server
 pnpm build
-# Restart TypeScript server in VSCode (Cmd+Shift+P → "Restart TS Server")
+# In VSCode: Cmd+Shift+P → "Restart TS Server"
 ```
 
-### Test Failures
+### Missing Peer Dependencies
 
-**Problem**: Tests fail locally but pass in CI
-**Solution**:
+If users see errors about missing `openai` or `@anthropic-ai/sdk`:
 ```bash
-# Ensure Node version matches CI
-node --version  # Should be 18, 20, or 22
-
-# Use frozen lockfile
-rm -rf node_modules pnpm-lock.yaml
-pnpm install --frozen-lockfile
-pnpm test
-```
-
-### Changeset Issues
-
-**Problem**: Changeset not detected
-**Solution**:
-```bash
-# Ensure changeset file committed
-git status
-git add .changeset/*.md
-git commit -m "chore: add changeset"
+# Install the required peer dependency
+npm install openai  # For OpenAI users
 ```
 
 ---
 
 ## Architecture Decisions
 
-### Why Changesets?
+### Why Single Package with Sub-Exports?
 
-- **Industry Standard**: Used by React, Remix, Radix UI, etc.
-- **Monorepo Native**: Designed for multi-package repos
-- **Automated**: Reduces manual versioning errors
-- **Changelogs**: Auto-generates from changeset summaries
+Follows the pattern used by LangSmith and Braintrust SDKs:
+- **Simpler for users**: One `npm install brokle`
+- **Tree-shakeable**: Only import what you use
+- **Easier maintenance**: Single version to manage
+- **Optional dependencies**: Don't force users to install unused SDKs
 
 ### Why tsup?
 
 - **Fast**: esbuild-based bundler
-- **Zero Config**: Works out of the box
-- **Dual Format**: ESM + CJS in one command
+- **Multi-entry**: Native support for sub-path exports
+- **Dual Format**: ESM + CJS output
 - **TypeScript**: Native .d.ts generation
 
 ### Why Vitest?
 
 - **Fast**: Native ESM, parallel execution
 - **Compatible**: Jest-compatible API
-- **TypeScript**: First-class TypeScript support
-- **Modern**: Better DX than Jest
+- **Modern**: First-class TypeScript support
 
 ---
 
 ## Links
 
 - **Repository**: https://github.com/brokle-ai/brokle-js
-- **npm**: https://www.npmjs.com/org/brokle (packages not yet published)
-- **Changesets Docs**: https://github.com/changesets/changesets
+- **npm**: https://www.npmjs.com/package/brokle
 - **tsup Docs**: https://tsup.egoist.dev/
 - **Vitest Docs**: https://vitest.dev/

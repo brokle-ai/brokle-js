@@ -56,8 +56,8 @@ jobs:
         env:
           NPM_CONFIG_PROVENANCE: true
         run: |
-          echo "📦 Publishing all packages to npm (latest tag)..."
-          pnpm -r publish --access public --no-git-checks --tag latest
+          echo "📦 Publishing package to npm (latest tag)..."
+          pnpm publish --access public --no-git-checks --tag latest
           echo "✅ Published to npm!"
 
       - name: Publish to npm (pre-release)
@@ -78,6 +78,6 @@ jobs:
             TAG="beta"  # Fallback
           fi
 
-          echo "📦 Publishing all packages to npm with @$TAG tag..."
-          pnpm -r publish --access public --no-git-checks --tag $TAG
+          echo "📦 Publishing package to npm with @$TAG tag..."
+          pnpm publish --access public --no-git-checks --tag $TAG
           echo "✅ Published to npm with @$TAG tag!"

@@ -14,7 +14,7 @@ import {
   extractBrokleOptions,
   addPromptAttributes,
   type BrokleOptions,
-} from 'brokle';
+} from '../../index';
 import { SpanStatusCode } from '@opentelemetry/api';
 import { extractMessageAttributes } from './parser';
 
@@ -29,7 +29,7 @@ export type { BrokleOptions };
  * @example
  * ```typescript
  * import Anthropic from '@anthropic-ai/sdk';
- * import { wrapAnthropic } from 'brokle-anthropic';
+ * import { wrapAnthropic } from 'brokle/anthropic';
  *
  * const anthropic = wrapAnthropic(new Anthropic({ apiKey: '...' }));
  *
@@ -42,6 +42,25 @@ export type { BrokleOptions };
  * ```
  */
 export function wrapAnthropic<T extends Anthropic>(client: T): T {
+  // Runtime validation: check if this looks like an Anthropic client
+  if (!client || typeof client !== 'object') {
+    throw new Error(
+      'wrapAnthropic requires an Anthropic client instance. ' +
+      'Usage: wrapAnthropic(new Anthropic({ apiKey: "..." }))'
+    );
+  }
+
+  // Validate Anthropic client structure
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const c = client as any;
+  if (!c.messages?.create) {
+    throw new Error(
+      'Invalid Anthropic client passed to wrapAnthropic. ' +
+      'The "@anthropic-ai/sdk" package (^0.30.0) is required. ' +
+      'Install it with: npm install @anthropic-ai/sdk'
+    );
+  }
+
   const brokleClient = getClient();
 
   if (!brokleClient.getConfig().enabled) {

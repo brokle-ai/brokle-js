@@ -1,5 +1,5 @@
 /**
- * Tests for Anthropic wrapper
+ * Tests for OpenAI wrapper
  *
  * Covers:
  * - Symbol handling (critical bug fix)
@@ -8,9 +8,9 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { wrapAnthropic } from './wrapper';
+import { wrapOpenAI } from './wrapper';
 
-describe('Anthropic Wrapper', () => {
+describe('OpenAI Wrapper', () => {
   beforeAll(() => {
     // Set required environment variable for testing
     process.env.BROKLE_API_KEY = 'bk_' + 'x'.repeat(40);
@@ -19,7 +19,7 @@ describe('Anthropic Wrapper', () => {
   describe('Proxy symbol handling', () => {
   describe('symbol property access safety', () => {
     it('should handle Symbol.toStringTag without crashing', () => {
-      const mockClient = { messages: { create: () => {} } };
+      const mockClient = { chat: { completions: { create: () => {} } } };
 
       // Create a simple proxy with symbol guard (same pattern as our wrapper)
       const proxy = new Proxy(mockClient, {
@@ -82,7 +82,7 @@ describe('Anthropic Wrapper', () => {
     });
 
     it('should allow string path building for normal properties', () => {
-      const mockClient = { messages: { create: () => 'test' } };
+      const mockClient = { chat: { completions: { create: () => 'test' } } };
 
       const proxy = new Proxy(mockClient, {
         get(obj, prop: string | symbol) {
@@ -92,74 +92,77 @@ describe('Anthropic Wrapper', () => {
 
           // This should work fine with string properties
           const path = ['root', prop].join('.');
-          expect(path).toBe('root.messages');
+          expect(path).toBe('root.chat');
 
           return obj[prop as keyof typeof obj];
         },
       });
 
-      expect(proxy.messages).toBeDefined();
+      expect(proxy.chat).toBeDefined();
     });
   });
   });
 
   describe('Wrapper Integration', () => {
-    it('should wrap Anthropic client without errors', () => {
+    it('should wrap OpenAI client without errors', () => {
       const mockClient = {
-        messages: {
-          create: async () => ({
-            id: 'msg_test',
-            content: [{ type: 'text', text: 'test' }],
-            model: 'claude-3-opus',
-            role: 'assistant',
-          }),
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
+        completions: {
+          create: async () => ({ id: 'test', choices: [] }),
+        },
+        embeddings: {
+          create: async () => ({ data: [], usage: {} }),
         },
       } as any;
 
-      const wrapped = wrapAnthropic(mockClient);
+      const wrapped = wrapOpenAI(mockClient);
       expect(wrapped).toBeDefined();
-      expect(wrapped.messages).toBeDefined();
-      expect(wrapped.messages.create).toBeDefined();
+      expect(wrapped.chat).toBeDefined();
+      expect(wrapped.chat.completions).toBeDefined();
     });
 
     it('should preserve API structure after wrapping', () => {
       const mockClient = {
-        messages: {
-          create: async () => ({
-            id: 'msg_test',
-            content: [],
-            model: 'claude-3-opus',
-            role: 'assistant',
-          }),
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
         },
       } as any;
 
-      const wrapped = wrapAnthropic(mockClient);
+      const wrapped = wrapOpenAI(mockClient);
 
-      expect(typeof wrapped.messages.create).toBe('function');
+      expect(typeof wrapped.chat.completions.create).toBe('function');
     });
 
     it('should handle Symbol.toStringTag on wrapped client', () => {
       const mockClient = {
-        messages: {
-          create: async () => ({
-            id: 'msg_test',
-            content: [],
-            model: 'claude-3-opus',
-            role: 'assistant',
-          }),
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
         },
       } as any;
 
-      const wrapped = wrapAnthropic(mockClient);
+      const wrapped = wrapOpenAI(mockClient);
 
       // Regression test for Symbol bug
       expect(() => Object.prototype.toString.call(wrapped)).not.toThrow();
-      expect(() => Object.prototype.toString.call(wrapped.messages)).not.toThrow();
+      expect(() => Object.prototype.toString.call(wrapped.chat)).not.toThrow();
+      expect(() => Object.prototype.toString.call(wrapped.chat.completions)).not.toThrow();
     });
 
     it('should handle multiple levels of nesting', () => {
       const mockClient = {
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
+        },
         level1: {
           level2: {
             level3: {
@@ -169,7 +172,7 @@ describe('Anthropic Wrapper', () => {
         },
       } as any;
 
-      const wrapped = wrapAnthropic(mockClient);
+      const wrapped = wrapOpenAI(mockClient);
 
       expect(wrapped.level1).toBeDefined();
       expect(wrapped.level1.level2).toBeDefined();
@@ -179,39 +182,35 @@ describe('Anthropic Wrapper', () => {
 
     it('should preserve non-function properties', () => {
       const mockClient = {
-        apiKey: 'sk-ant-test',
-        baseURL: 'https://api.anthropic.com',
-        messages: {
-          create: async () => ({
-            id: 'msg_test',
-            content: [],
-            model: 'claude-3-opus',
-            role: 'assistant',
-          }),
+        baseURL: 'https://api.openai.com',
+        apiKey: 'sk-test',
+        organization: 'org-test',
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
         },
       } as any;
 
-      const wrapped = wrapAnthropic(mockClient);
+      const wrapped = wrapOpenAI(mockClient);
 
-      expect(wrapped.apiKey).toBe('sk-ant-test');
-      expect(wrapped.baseURL).toBe('https://api.anthropic.com');
+      expect(wrapped.baseURL).toBe('https://api.openai.com');
+      expect(wrapped.apiKey).toBe('sk-test');
+      expect(wrapped.organization).toBe('org-test');
     });
 
     it('should handle null and undefined properties', () => {
       const mockClient = {
         nullProp: null,
         undefinedProp: undefined,
-        messages: {
-          create: async () => ({
-            id: 'msg_test',
-            content: [],
-            model: 'claude-3-opus',
-            role: 'assistant',
-          }),
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
         },
       } as any;
 
-      const wrapped = wrapAnthropic(mockClient);
+      const wrapped = wrapOpenAI(mockClient);
 
       expect(wrapped.nullProp).toBeNull();
       expect(wrapped.undefinedProp).toBeUndefined();
@@ -219,24 +218,62 @@ describe('Anthropic Wrapper', () => {
 
     it('should not modify original client', () => {
       const mockClient = {
-        messages: {
-          create: async () => ({
-            id: 'msg_test',
-            content: [],
-            model: 'claude-3-opus',
-            role: 'assistant',
-          }),
+        chat: {
+          completions: {
+            create: async () => ({ id: 'test', choices: [] }),
+          },
         },
       } as any;
 
-      const originalCreate = mockClient.messages.create;
-      const wrapped = wrapAnthropic(mockClient);
+      const originalCreate = mockClient.chat.completions.create;
+      const wrapped = wrapOpenAI(mockClient);
 
       // Original client should not be modified
-      expect(mockClient.messages.create).toBe(originalCreate);
+      expect(mockClient.chat.completions.create).toBe(originalCreate);
 
       // Wrapped client should have different reference (proxied)
-      expect(wrapped.messages.create).not.toBe(originalCreate);
+      expect(wrapped.chat.completions.create).not.toBe(originalCreate);
+    });
+  });
+
+  describe('Runtime Validation', () => {
+    it('should throw error for null client', () => {
+      expect(() => wrapOpenAI(null as any)).toThrow(
+        'wrapOpenAI requires an OpenAI client instance'
+      );
+    });
+
+    it('should throw error for undefined client', () => {
+      expect(() => wrapOpenAI(undefined as any)).toThrow(
+        'wrapOpenAI requires an OpenAI client instance'
+      );
+    });
+
+    it('should throw error for non-object client', () => {
+      expect(() => wrapOpenAI('not-a-client' as any)).toThrow(
+        'wrapOpenAI requires an OpenAI client instance'
+      );
+    });
+
+    it('should throw error for client without chat.completions.create or completions.create', () => {
+      const invalidClient = { someOtherMethod: () => {} } as any;
+      expect(() => wrapOpenAI(invalidClient)).toThrow(
+        'Invalid OpenAI client passed to wrapOpenAI'
+      );
+    });
+
+    it('should accept client with only chat.completions.create', () => {
+      const client = {
+        chat: { completions: { create: async () => ({}) } },
+      } as any;
+      expect(() => wrapOpenAI(client)).not.toThrow();
+    });
+
+    it('should accept client with only completions.create', () => {
+      const client = {
+        completions: { create: async () => ({}) },
+      } as any;
+      expect(() => wrapOpenAI(client)).not.toThrow();
     });
   });
 });
