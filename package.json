@@ -33,6 +33,36 @@
       "types": "./dist/scorers/index.d.ts",
       "import": "./dist/scorers/index.js",
       "require": "./dist/scorers/index.cjs"
+    },
+    "./vercel-ai": {
+      "types": "./dist/integrations/vercel-ai/index.d.ts",
+      "import": "./dist/integrations/vercel-ai/index.js",
+      "require": "./dist/integrations/vercel-ai/index.cjs"
+    },
+    "./google": {
+      "types": "./dist/integrations/google/index.d.ts",
+      "import": "./dist/integrations/google/index.js",
+      "require": "./dist/integrations/google/index.cjs"
+    },
+    "./mistral": {
+      "types": "./dist/integrations/mistral/index.d.ts",
+      "import": "./dist/integrations/mistral/index.js",
+      "require": "./dist/integrations/mistral/index.cjs"
+    },
+    "./azure": {
+      "types": "./dist/integrations/azure/index.d.ts",
+      "import": "./dist/integrations/azure/index.js",
+      "require": "./dist/integrations/azure/index.cjs"
+    },
+    "./bedrock": {
+      "types": "./dist/integrations/bedrock/index.d.ts",
+      "import": "./dist/integrations/bedrock/index.js",
+      "require": "./dist/integrations/bedrock/index.cjs"
+    },
+    "./cohere": {
+      "types": "./dist/integrations/cohere/index.d.ts",
+      "import": "./dist/integrations/cohere/index.js",
+      "require": "./dist/integrations/cohere/index.cjs"
     }
   },
   "typesVersions": {
@@ -48,6 +78,24 @@
       ],
       "scorers": [
         "./dist/scorers/index.d.ts"
+      ],
+      "vercel-ai": [
+        "./dist/integrations/vercel-ai/index.d.ts"
+      ],
+      "google": [
+        "./dist/integrations/google/index.d.ts"
+      ],
+      "mistral": [
+        "./dist/integrations/mistral/index.d.ts"
+      ],
+      "azure": [
+        "./dist/integrations/azure/index.d.ts"
+      ],
+      "bedrock": [
+        "./dist/integrations/bedrock/index.d.ts"
+      ],
+      "cohere": [
+        "./dist/integrations/cohere/index.d.ts"
       ]
     }
   },
@@ -76,7 +124,12 @@
     "@opentelemetry/api": "^1.9.0",
     "openai": "^4.0.0 || ^5.0.0 || ^6.0.0",
     "@anthropic-ai/sdk": ">=0.30.0",
-    "@langchain/core": ">=0.3.80"
+    "@langchain/core": ">=0.3.0",
+    "ai": ">=3.0.0 || >=4.0.0",
+    "@google/genai": ">=1.0.0",
+    "@mistralai/mistralai": ">=1.0.0",
+    "@aws-sdk/client-bedrock-runtime": ">=3.0.0",
+    "cohere-ai": ">=7.0.0"
   },
   "peerDependenciesMeta": {
     "openai": {
@@ -86,6 +139,21 @@
       "optional": true
     },
     "@langchain/core": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "@google/genai": {
+      "optional": true
+    },
+    "@mistralai/mistralai": {
+      "optional": true
+    },
+    "@aws-sdk/client-bedrock-runtime": {
+      "optional": true
+    },
+    "cohere-ai": {
       "optional": true
     }
   },
@@ -149,6 +217,15 @@
     "apm",
     "openai",
     "anthropic",
-    "langchain"
+    "langchain",
+    "vercel-ai",
+    "ai-sdk",
+    "google-genai",
+    "gemini",
+    "mistral",
+    "azure-openai",
+    "bedrock",
+    "cohere",
+    "rag"
   ]
 }

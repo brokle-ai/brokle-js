@@ -158,55 +158,6 @@ export class Prompt {
   }
 
   /**
-   * Convert to LlamaIndex prompt template
-   *
-   * Requires llamaindex to be installed.
-   *
-   * @returns LlamaIndex PromptTemplate or ChatPromptTemplate
-   * @throws Error if llamaindex is not installed
-   */
-  async toLlamaIndex(): Promise<any> {
-    try {
-      // Dynamic import to avoid requiring llamaindex as dependency
-      // @ts-expect-error - llamaindex is an optional dependency, types may not be installed
-      const llamaindex = await import('llamaindex');
-      const { PromptTemplate, ChatPromptTemplate, ChatMessage: LlamaMessage, MessageRole } = llamaindex;
-
-      if (this.isText()) {
-        return new PromptTemplate({
-          template: (this.template as TextTemplate).content,
-        });
-      }
-
-      // Chat template -> map to LlamaIndex messages
-      const messages = (this.template as ChatTemplate).messages;
-      const llamaMessages = messages.map((msg) => {
-        let role = MessageRole.USER;
-        switch (msg.role) {
-          case 'system':
-            role = MessageRole.SYSTEM;
-            break;
-          case 'user':
-            role = MessageRole.USER;
-            break;
-          case 'assistant':
-            role = MessageRole.ASSISTANT;
-            break;
-        }
-
-        return new LlamaMessage({ role, content: msg.content });
-      });
-
-      return new ChatPromptTemplate({ messageTemplates: llamaMessages });
-    } catch (_error) {
-      throw new Error(
-        'llamaindex is required for toLlamaIndex(). ' +
-          'Install with: npm install llamaindex'
-      );
-    }
-  }
-
-  /**
    * Convert to OpenAI messages format
    *
    * For text templates, returns a single user message.
