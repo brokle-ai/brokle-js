@@ -27,6 +27,7 @@ import { DatasetsManager } from './datasets';
 import { ScoresManager } from './scores';
 import { ExperimentsManager } from './experiments';
 import { QueryManager } from './query';
+import { AnnotationsManager } from './annotations';
 import { SDK_VERSION, SDK_NAME } from './version';
 
 /**
@@ -54,6 +55,7 @@ export class Brokle {
   private scoresManager: ScoresManager | null = null;
   private experimentsManager: ExperimentsManager | null = null;
   private queryManager: QueryManager | null = null;
+  private annotationsManager: AnnotationsManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -656,6 +658,42 @@ export class Brokle {
       });
     }
     return this.queryManager;
+  }
+
+  /**
+   * Get the Annotations manager for annotation queue operations
+   *
+   * Provides methods for adding items to annotation queues for
+   * human-in-the-loop (HITL) evaluation workflows.
+   *
+   * @returns AnnotationsManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * // Add traces to annotation queue
+   * const result = await client.annotations.addTraces(
+   *   "queue123",
+   *   ["trace1", "trace2", "trace3"],
+   *   { priority: 5 }
+   * );
+   * console.log(`Added ${result.created} items`);
+   *
+   * // Add items with mixed types
+   * await client.annotations.addItems("queue123", [
+   *   { objectId: "trace1", objectType: "trace" },
+   *   { objectId: "span1", objectType: "span", priority: 10 },
+   * ]);
+   * ```
+   */
+  get annotations(): AnnotationsManager {
+    if (!this.annotationsManager) {
+      this.annotationsManager = new AnnotationsManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.annotationsManager;
   }
 
   /**

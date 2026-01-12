@@ -191,6 +191,35 @@ export type {
   SpanEvent,
 } from './query';
 
+// Annotations Management (HITL evaluation workflows)
+export {
+  AnnotationsManager,
+  AnnotationError,
+  QueueNotFoundError,
+  ItemNotFoundError,
+  ItemLockedError,
+  NoItemsAvailableError,
+  AssignmentError,
+} from './annotations';
+export type {
+  AnnotationsManagerConfig,
+  AnnotationQueue,
+  QueueItem,
+  QueueAssignment,
+  QueueSettings,
+  QueueStats,
+  QueueStatus,
+  ItemStatus,
+  ObjectType,
+  AssignmentRole,
+  AddItemInput,
+  AddItemsResult,
+  ListItemsResult,
+  ListItemsOptions,
+  ScoreSubmission,
+  APIResponse,
+} from './annotations';
+
 // Wrapper utilities (for SDK wrapper packages)
 export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
 export type { BrokleOptions } from './utils/wrappers';
