@@ -194,3 +194,7 @@ export type {
 // Wrapper utilities (for SDK wrapper packages)
 export { extractBrokleOptions, addPromptAttributes } from './utils/wrappers';
 export type { BrokleOptions } from './utils/wrappers';
+
+// Top-level evaluate function (Braintrust/LangSmith pattern)
+export { evaluate, createKeyMappingScorer, KeyMappingScorer } from './evaluate';
+export type { EvaluateOptions, ScoringKeyMapping } from './evaluate';
