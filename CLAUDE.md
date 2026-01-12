@@ -16,7 +16,7 @@ This is the **Brokle JavaScript/TypeScript SDK** - a single npm package providin
 
 ## Repository Structure
 
-This is a **single-package SDK** with sub-path exports (follows LangSmith/Braintrust pattern):
+This is a **single-package SDK** with sub-path exports:
 
 ```
 brokle-js/
@@ -317,7 +317,7 @@ npm install openai  # For OpenAI users
 
 ### Why Single Package with Sub-Exports?
 
-Follows the pattern used by LangSmith and Braintrust SDKs:
+Benefits of this pattern:
 - **Simpler for users**: One `npm install brokle`
 - **Tree-shakeable**: Only import what you use
 - **Easier maintenance**: Single version to manage

@@ -4,7 +4,7 @@
  * Provides LLMScorer for evaluating outputs using LLM models as judges.
  * Uses project AI credentials via the Brokle backend.
  *
- * Features (following industry patterns from Braintrust, Langfuse, Optik):
+ * Features:
  * - Mustache-style template variables: {{input}}, {{output}}, {{expected}}
  * - Choice scores mapping for classification tasks
  * - Chain-of-thought (CoT) reasoning option
@@ -33,7 +33,7 @@
  *   model: 'gpt-4o',
  * });
  *
- * // Classification with choice scores (Braintrust pattern)
+ * // Classification with choice scores
  * const factuality = LLMScorer({
  *   client: { apiKey: config.apiKey, baseUrl: config.baseUrl },
  *   name: 'factuality',
@@ -90,7 +90,7 @@ function inferProvider(model: string): string {
 /**
  * Render Mustache-style template with variables
  *
- * Supports {{variable}} syntax (industry standard from Braintrust/Langfuse).
+ * Supports {{variable}} syntax for template variables.
  */
 function renderTemplate(template: string, variables: Record<string, unknown>): string {
   let result = template;

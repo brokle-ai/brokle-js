@@ -1,7 +1,7 @@
 /**
  * Tests for LLMScorer - LLM-as-Judge scorer using project AI credentials.
  *
- * Follows industry testing patterns from Optik, Braintrust, and Langfuse:
+ * Testing patterns:
  * - Mock fetch, test parsing separately from LLM calls
  * - Validate graceful degradation (scoringFailed=true, never throw)
  * - Test all response parsing modes (JSON, text, choice scores, multi-score)

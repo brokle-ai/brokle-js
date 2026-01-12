@@ -9,7 +9,7 @@ Comprehensive guidance for developing the Brokle JavaScript/TypeScript SDK - an 
 
 ## Overview
 
-The Brokle JavaScript SDK is built on **@opentelemetry/sdk-node** with full GenAI 1.28+ semantic conventions compliance. It's a **single package with sub-path exports** (follows LangSmith/Braintrust pattern) providing multiple integration patterns.
+The Brokle JavaScript SDK is built on **@opentelemetry/sdk-node** with full GenAI 1.28+ semantic conventions compliance. It's a **single package with sub-path exports** providing multiple integration patterns.
 
 **Architecture**: OTEL-native with TracerProvider → BrokleSpanProcessor → OTLP/HTTP Exporter (Protobuf+Gzip)
 
