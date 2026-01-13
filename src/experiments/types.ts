@@ -229,3 +229,86 @@ export interface SubmitItemData {
   trial_number: number;
   error?: string;
 }
+
+// ===========================================================================
+// Experiment Operations Types (rerun, compare)
+// ===========================================================================
+
+/**
+ * Options for re-running an experiment
+ */
+export interface RerunExperimentOptions {
+  /** New name (defaults to "{original}-rerun-{timestamp}") */
+  name?: string;
+  /** New description */
+  description?: string;
+  /** New metadata */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for comparing experiments
+ */
+export interface CompareExperimentsOptions {
+  /** Baseline experiment ID for diff calculations */
+  baselineId?: string;
+}
+
+/**
+ * Score aggregation statistics from experiment comparison
+ */
+export interface ScoreAggregation {
+  /** Average score value */
+  mean: number;
+  /** Standard deviation of scores */
+  stdDev: number;
+  /** Minimum score value */
+  min: number;
+  /** Maximum score value */
+  max: number;
+  /** Total number of scores */
+  count: number;
+}
+
+/**
+ * Score difference from baseline in experiment comparison
+ */
+export interface ScoreDiff {
+  /** Diff type (e.g., "percentage", "absolute") */
+  type?: string;
+  /** Numeric difference value */
+  difference: number;
+  /** Direction of change ("up", "down", "same") */
+  direction: string;
+}
+
+/**
+ * Experiment summary in comparison results
+ */
+export interface ExperimentSummary {
+  /** Experiment name */
+  name: string;
+  /** Experiment status */
+  status: string;
+}
+
+/**
+ * Result of comparing multiple experiments
+ */
+export interface ComparisonResult {
+  /** Map of experiment ID to summary info */
+  experiments: Record<string, ExperimentSummary>;
+  /** Map of scorer name -> experiment ID -> aggregation stats */
+  scores: Record<string, Record<string, ScoreAggregation>>;
+  /** Map of scorer name -> experiment ID -> diff from baseline (optional) */
+  diffs?: Record<string, Record<string, ScoreDiff>>;
+}
+
+/**
+ * API response data for comparison
+ */
+export interface ComparisonResultData {
+  experiments: Record<string, ExperimentSummary>;
+  scores: Record<string, Record<string, ScoreAggregation>>;
+  diffs?: Record<string, Record<string, ScoreDiff>>;
+}

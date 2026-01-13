@@ -9,6 +9,7 @@ import type {
   DatasetsManagerConfig,
   CreateDatasetOptions,
   ListDatasetsOptions,
+  UpdateDatasetOptions,
   DatasetData,
   APIResponse,
 } from './types';
@@ -91,6 +92,38 @@ export class DatasetsManager {
     }
 
     return response.json() as Promise<T>;
+  }
+
+  private async httpPatch<T>(path: string, body: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new DatasetError(`API request failed (${response.status}): ${error}`);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
+  private async httpDelete(path: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'DELETE',
+      headers: {
+        'X-API-Key': this.apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new DatasetError(`API request failed (${response.status}): ${error}`);
+    }
   }
 
   /**
@@ -188,16 +221,66 @@ export class DatasetsManager {
 
     this.log('Listing datasets', { limit, offset });
 
-    const rawResponse = await this.httpGet<APIResponse<{ datasets: DatasetData[]; total: number }>>(
+    const rawResponse = await this.httpGet<APIResponse<DatasetData[]>>(
       '/v1/datasets',
       { limit, offset }
     );
 
     const data = this.unwrapResponse(rawResponse);
 
-    return data.datasets.map(
+    // API returns array directly in data field
+    return data.map(
       (d) =>
         new Dataset({ baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug }, d)
     );
+  }
+
+  /**
+   * Update a dataset.
+   *
+   * @param datasetId - The dataset ID to update
+   * @param options - Update options (at least one field required)
+   * @returns Updated Dataset instance
+   *
+   * @example
+   * ```typescript
+   * const updated = await client.datasets.update("01HXYZ...", {
+   *   name: "new-name",
+   *   description: "Updated description"
+   * });
+   * ```
+   */
+  async update(datasetId: string, options: UpdateDatasetOptions): Promise<Dataset> {
+    if (!options.name && !options.description && options.metadata === undefined) {
+      throw new DatasetError('At least one field (name, description, metadata) is required');
+    }
+
+    this.log('Updating dataset', { id: datasetId });
+
+    const rawResponse = await this.httpPatch<APIResponse<DatasetData>>(
+      `/v1/datasets/${datasetId}`,
+      options
+    );
+    const data = this.unwrapResponse(rawResponse);
+
+    return new Dataset(
+      { baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug },
+      data
+    );
+  }
+
+  /**
+   * Delete a dataset.
+   *
+   * @param datasetId - The dataset ID to delete
+   *
+   * @example
+   * ```typescript
+   * await client.datasets.delete("01HXYZ...");
+   * ```
+   */
+  async delete(datasetId: string): Promise<void> {
+    this.log('Deleting dataset', { id: datasetId });
+    await this.httpDelete(`/v1/datasets/${datasetId}`);
   }
 }

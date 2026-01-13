@@ -31,6 +31,12 @@ import type {
   KeysMapping,
   BulkImportResult,
   ImportOptions,
+  CSVColumnMapping,
+  CSVImportOptions,
+  DatasetVersion,
+  DatasetWithVersionInfo,
+  CreateVersionOptions,
+  PinVersionOptions,
 } from './types';
 import { DatasetError } from './errors';
 
@@ -467,6 +473,71 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     return result;
   }
 
+  /**
+   * Convert CSVColumnMapping to API format (snake_case).
+   */
+  private serializeColumnMapping(mapping: CSVColumnMapping): Record<string, unknown> {
+    const result: Record<string, unknown> = {
+      input_column: mapping.inputColumn,
+    };
+    if (mapping.expectedColumn) result.expected_column = mapping.expectedColumn;
+    if (mapping.metadataColumns) result.metadata_columns = mapping.metadataColumns;
+    return result;
+  }
+
+  /**
+   * Import dataset items from a CSV file.
+   *
+   * Reads a CSV file from disk and imports items using the specified column mapping.
+   * The CSV content is sent to the backend API for processing.
+   *
+   * @param filePath - Path to the CSV file to import
+   * @param columnMapping - Column mapping specifying which columns to use
+   * @param options - Import options (hasHeader, deduplicate)
+   * @returns BulkImportResult with created/skipped counts
+   *
+   * @example
+   * ```typescript
+   * const result = await dataset.insertFromCsv('./qa_pairs.csv', {
+   *   inputColumn: 'question',
+   *   expectedColumn: 'answer',
+   *   metadataColumns: ['category', 'difficulty'],
+   * });
+   * console.log(`Created: ${result.created}, Skipped: ${result.skipped}`);
+   * ```
+   */
+  async insertFromCsv(
+    filePath: string,
+    columnMapping: CSVColumnMapping,
+    options: CSVImportOptions = {}
+  ): Promise<BulkImportResult> {
+    const fs = await import('fs/promises');
+    this.log(`Importing items from CSV file: ${filePath}`);
+
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+
+      const payload: Record<string, unknown> = {
+        content,
+        column_mapping: this.serializeColumnMapping(columnMapping),
+        has_header: options.hasHeader ?? true,
+        deduplicate: options.deduplicate ?? true,
+      };
+
+      const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
+        `/v1/datasets/${this._id}/items/import-csv`,
+        payload
+      );
+
+      return this.unwrapResponse(rawResponse);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('ENOENT')) {
+        throw new DatasetError(`File not found: ${filePath}`);
+      }
+      throw new DatasetError(`Failed to import from CSV: ${error}`);
+    }
+  }
+
   // ===========================================================================
   // Export Methods
   // ===========================================================================
@@ -524,5 +595,178 @@ export class Dataset implements AsyncIterable<DatasetItem> {
       return data;
     }
     return (data as { items: DatasetItem[] }).items ?? [];
+  }
+
+  // ===========================================================================
+  // Dataset Versioning Methods
+  // ===========================================================================
+
+  /**
+   * Create a new version (snapshot) of the current dataset items.
+   *
+   * Versions allow you to freeze the dataset at a point in time for reproducible evaluations.
+   * Each version captures all current items and assigns an auto-incremented version number.
+   *
+   * @param options - Optional version metadata (description, metadata)
+   * @returns The created DatasetVersion
+   *
+   * @example
+   * ```typescript
+   * // Create a version before running an experiment
+   * const version = await dataset.createVersion({
+   *   description: "Pre-training dataset v1",
+   *   metadata: { experiment_id: "exp_123" }
+   * });
+   * console.log(`Created version ${version.version} with ${version.item_count} items`);
+   * ```
+   */
+  async createVersion(options: CreateVersionOptions = {}): Promise<DatasetVersion> {
+    this.log(`Creating version for dataset ${this._id}`);
+
+    const payload: Record<string, unknown> = {};
+    if (options.description) payload.description = options.description;
+    if (options.metadata) payload.metadata = options.metadata;
+
+    const rawResponse = await this.httpPost<APIResponse<DatasetVersion>>(
+      `/v1/datasets/${this._id}/versions`,
+      payload
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * List all versions for this dataset.
+   *
+   * @returns Array of DatasetVersion objects
+   *
+   * @example
+   * ```typescript
+   * const versions = await dataset.listVersions();
+   * for (const v of versions) {
+   *   console.log(`Version ${v.version}: ${v.item_count} items`);
+   * }
+   * ```
+   */
+  async listVersions(): Promise<DatasetVersion[]> {
+    this.log(`Listing versions for dataset ${this._id}`);
+
+    const rawResponse = await this.httpGet<APIResponse<DatasetVersion[]>>(
+      `/v1/datasets/${this._id}/versions`
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Get a specific version by ID.
+   *
+   * @param versionId - The version ID to retrieve
+   * @returns The DatasetVersion
+   *
+   * @example
+   * ```typescript
+   * const version = await dataset.getVersion("01HXYZ...");
+   * console.log(`Version ${version.version} has ${version.item_count} items`);
+   * ```
+   */
+  async getVersion(versionId: string): Promise<DatasetVersion> {
+    this.log(`Getting version ${versionId} for dataset ${this._id}`);
+
+    const rawResponse = await this.httpGet<APIResponse<DatasetVersion>>(
+      `/v1/datasets/${this._id}/versions/${versionId}`
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Get items for a specific version with pagination.
+   *
+   * @param versionId - The version ID to get items from
+   * @param options - Pagination options (limit, offset)
+   * @returns Object with items array and total count
+   *
+   * @example
+   * ```typescript
+   * const { items, total } = await dataset.getVersionItems("01HXYZ...", {
+   *   limit: 10,
+   *   offset: 0
+   * });
+   * console.log(`Fetched ${items.length} of ${total} items`);
+   * ```
+   */
+  async getVersionItems(
+    versionId: string,
+    options: GetItemsOptions = {}
+  ): Promise<{ items: DatasetItem[]; total: number }> {
+    const { limit = 50, offset = 0 } = options;
+
+    this.log(`Fetching items for version ${versionId}: limit=${limit}, offset=${offset}`);
+
+    const rawResponse = await this.httpGet<APIResponse<{ items: DatasetItem[]; total: number }>>(
+      `/v1/datasets/${this._id}/versions/${versionId}/items`,
+      { limit, offset }
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Pin this dataset to a specific version.
+   *
+   * When pinned, the dataset will always return items from that version instead of live items.
+   * This ensures reproducibility for evaluations and experiments.
+   *
+   * @param options - Pin options (versionId to pin, or null/undefined to unpin)
+   * @returns The updated dataset with version info
+   *
+   * @example
+   * ```typescript
+   * // Pin to a specific version
+   * await dataset.pinVersion({ versionId: "01HXYZ..." });
+   *
+   * // Unpin to return to live items
+   * await dataset.pinVersion({ versionId: null });
+   * ```
+   */
+  async pinVersion(options: PinVersionOptions = {}): Promise<DatasetWithVersionInfo> {
+    this.log(`Pinning dataset ${this._id} to version ${options.versionId ?? 'unpinned'}`);
+
+    const rawResponse = await this.httpPost<APIResponse<DatasetWithVersionInfo>>(
+      `/v1/datasets/${this._id}/pin`,
+      { version_id: options.versionId ?? null }
+    );
+
+    return this.unwrapResponse(rawResponse);
+  }
+
+  /**
+   * Get this dataset with detailed version information.
+   *
+   * Returns the dataset along with its current pinned version (if any) and latest version.
+   *
+   * @returns DatasetWithVersionInfo containing current and latest version details
+   *
+   * @example
+   * ```typescript
+   * const info = await dataset.getInfo();
+   * console.log(`Dataset: ${info.name}`);
+   * if (info.current_version) {
+   *   console.log(`Pinned to version ${info.current_version.version}`);
+   * }
+   * if (info.latest_version) {
+   *   console.log(`Latest version: ${info.latest_version.version}`);
+   * }
+   * ```
+   */
+  async getInfo(): Promise<DatasetWithVersionInfo> {
+    this.log(`Getting info for dataset ${this._id}`);
+
+    const rawResponse = await this.httpGet<APIResponse<DatasetWithVersionInfo>>(
+      `/v1/datasets/${this._id}/info`
+    );
+
+    return this.unwrapResponse(rawResponse);
   }
 }

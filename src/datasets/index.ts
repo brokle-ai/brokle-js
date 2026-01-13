@@ -51,6 +51,13 @@ export type {
   KeysMapping,
   BulkImportResult,
   ImportOptions,
+  CSVColumnMapping,
+  CSVImportOptions,
+  // Versioning types
+  DatasetVersion,
+  DatasetWithVersionInfo,
+  CreateVersionOptions,
+  PinVersionOptions,
 } from './types';
 
 // Errors
