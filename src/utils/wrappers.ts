@@ -30,15 +30,29 @@ export function extractBrokleOptions(params: any): { cleanParams: any; brokleOpt
 }
 
 /**
- * Helper to add prompt attributes to span if prompt is provided and not a fallback
+ * Helper to set an attribute on either a span or plain object
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function addPromptAttributes(attributes: Record<string, any>, brokleOpts: BrokleOptions): void {
+function setAttr(target: any, key: string, value: any): void {
+  if (typeof target.setAttribute === 'function') {
+    // It's a span - use setAttribute
+    target.setAttribute(key, value);
+  } else {
+    // It's a plain object - use property assignment
+    target[key] = value;
+  }
+}
+
+/**
+ * Helper to add prompt attributes to span or attributes object if prompt is provided and not a fallback
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function addPromptAttributes(target: Record<string, any>, brokleOpts: BrokleOptions): void {
   if (brokleOpts.prompt && !brokleOpts.prompt.isFallback) {
-    attributes[Attrs.BROKLE_PROMPT_NAME] = brokleOpts.prompt.name;
-    attributes[Attrs.BROKLE_PROMPT_VERSION] = brokleOpts.prompt.version;
+    setAttr(target, Attrs.BROKLE_PROMPT_NAME, brokleOpts.prompt.name);
+    setAttr(target, Attrs.BROKLE_PROMPT_VERSION, brokleOpts.prompt.version);
     if (brokleOpts.prompt.id && brokleOpts.prompt.id !== 'fallback') {
-      attributes[Attrs.BROKLE_PROMPT_ID] = brokleOpts.prompt.id;
+      setAttr(target, Attrs.BROKLE_PROMPT_ID, brokleOpts.prompt.id);
     }
   }
 }
