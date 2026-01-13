@@ -81,28 +81,49 @@ export interface ContainsOptions {
   name?: string;
   /** Whether to perform case-sensitive comparison (default: true) */
   caseSensitive?: boolean;
+  /** Substring to search for (alternative to expected parameter at runtime) */
+  substring?: string;
 }
 
 /**
  * Substring matching scorer.
  *
- * Checks if the expected value is contained within the output.
+ * Checks if the substring/expected value is contained within the output.
+ * Can be configured with a fixed substring at initialization, or use the
+ * expected parameter at runtime.
  *
  * @param options - Configuration options
  * @returns Scorer function
  *
  * @example
  * ```typescript
+ * // Using expected at runtime (legacy)
  * const contains = Contains({ name: "has_keyword" });
- * // Returns 1.0 for "The capital is Paris" containing "Paris"
+ * contains({ output: "The capital is Paris", expected: "Paris" }); // 1.0
+ *
+ * // Using substring at initialization
+ * const containsHello = Contains({ substring: "hello" });
+ * containsHello({ output: "hello world" }); // 1.0
  * ```
  */
 export function Contains(options: ContainsOptions = {}): Scorer {
-  const { name = 'contains', caseSensitive = true } = options;
+  const { name = 'contains', caseSensitive = true, substring } = options;
 
   const fn = ({ output, expected }: ScorerArgs): ScoreResult => {
+    // Use substring from init, or fall back to expected parameter
+    const searchStr = substring ?? expected;
+
+    // Handle case where neither substring nor expected is provided
+    if (searchStr === null || searchStr === undefined) {
+      return {
+        name,
+        value: 0,
+        type: ScoreType.BOOLEAN,
+      };
+    }
+
     let outStr = String(output ?? '');
-    let expStr = String(expected ?? '');
+    let expStr = String(searchStr);
 
     if (!caseSensitive) {
       outStr = outStr.toLowerCase();

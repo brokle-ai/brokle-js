@@ -763,6 +763,50 @@ export class Brokle {
   }
 
   /**
+   * Verify connection to Brokle server.
+   *
+   * Makes an async request to validate API key.
+   * Use for development/testing only - adds latency.
+   *
+   * @returns Promise resolving to true if authenticated, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const client = new Brokle({ apiKey: 'bk_...' });
+   * if (await client.authCheck()) {
+   *   console.log('Connected!');
+   * }
+   * ```
+   */
+  async authCheck(): Promise<boolean> {
+    // If SDK is disabled, return false (no-op)
+    if (!this.config.enabled) {
+      return false;
+    }
+
+    try {
+      const url = `${this.config.baseUrl}/v1/auth/validate-key`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': this.config.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = (await response.json()) as { success?: boolean };
+      return data?.success === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Create a Brokle client asynchronously (required for gRPC transport)
    *
    * Use this factory method when using gRPC transport, as gRPC exporters

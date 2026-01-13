@@ -130,6 +130,18 @@ export interface CreateDatasetOptions {
 }
 
 /**
+ * Options for updating a dataset
+ */
+export interface UpdateDatasetOptions {
+  /** New name for the dataset */
+  name?: string;
+  /** New description for the dataset */
+  description?: string;
+  /** New metadata for the dataset */
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Options for fetching items with pagination
  */
 export interface GetItemsOptions {

@@ -22,6 +22,10 @@ import type {
   APIResponse,
   ExperimentData,
   SubmitItemData,
+  RerunExperimentOptions,
+  CompareExperimentsOptions,
+  ComparisonResult,
+  ComparisonResultData,
 } from './types';
 
 /**
@@ -160,6 +164,17 @@ function toExperiment(data: ExperimentData): Experiment {
     metadata: data.metadata,
     createdAt: data.created_at,
     updatedAt: data.updated_at,
+  };
+}
+
+/**
+ * Transform API comparison data to ComparisonResult type
+ */
+function toComparisonResult(data: ComparisonResultData): ComparisonResult {
+  return {
+    experiments: data.experiments,
+    scores: data.scores,
+    diffs: data.diffs,
   };
 }
 
@@ -763,12 +778,108 @@ export class ExperimentsManager {
 
     this.log('Listing experiments', { limit, offset });
 
-    const rawResponse = await this.httpGet<
-      APIResponse<{ experiments: ExperimentData[]; total: number }>
-    >('/v1/experiments', { limit, offset });
+    const rawResponse = await this.httpGet<APIResponse<ExperimentData[]>>(
+      '/v1/experiments',
+      { limit, offset }
+    );
 
     const data = this.unwrapResponse(rawResponse);
 
-    return data.experiments.map(toExperiment);
+    // API returns array directly in data field
+    return data.map(toExperiment);
+  }
+
+  /**
+   * Re-run an experiment.
+   *
+   * Creates a new experiment based on an existing one, using the same dataset.
+   * The new experiment starts in pending status.
+   *
+   * @param experimentId - Source experiment ID to re-run
+   * @param options - Optional new name, description, or metadata
+   * @returns New Experiment object in pending status
+   *
+   * @example
+   * ```typescript
+   * // Re-run an experiment with a new name
+   * const newExp = await client.experiments.rerun("01HXYZ...", {
+   *   name: "my-experiment-v2",
+   * });
+   *
+   * // Re-run with same name (auto-generates timestamp suffix)
+   * const rerun = await client.experiments.rerun("01HXYZ...");
+   * ```
+   */
+  async rerun(experimentId: string, options: RerunExperimentOptions = {}): Promise<Experiment> {
+    this.log('Re-running experiment', { id: experimentId });
+
+    const payload: Record<string, unknown> = {};
+    if (options.name) payload.name = options.name;
+    if (options.description) payload.description = options.description;
+    if (options.metadata) payload.metadata = options.metadata;
+
+    const rawResponse = await this.httpPost<APIResponse<ExperimentData>>(
+      `/v1/experiments/${experimentId}/rerun`,
+      payload
+    );
+    const data = this.unwrapResponse(rawResponse);
+
+    return toExperiment(data);
+  }
+
+  /**
+   * Compare multiple experiments.
+   *
+   * Compares score metrics across experiments. Optionally specify a baseline
+   * for calculating score differences.
+   *
+   * @param experimentIds - List of experiment IDs to compare (2-10 experiments)
+   * @param options - Optional baseline_id for diff calculations
+   * @returns ComparisonResult with score aggregations and diffs
+   *
+   * @example
+   * ```typescript
+   * // Compare two experiments
+   * const result = await client.experiments.compare([
+   *   "01HXYZ...",
+   *   "01HABC...",
+   * ]);
+   *
+   * // Compare with baseline
+   * const withBaseline = await client.experiments.compare(
+   *   ["01HXYZ...", "01HABC...", "01HDEF..."],
+   *   { baselineId: "01HXYZ..." }
+   * );
+   *
+   * // Access comparison data
+   * console.log(result.scores);  // { "exact_match": { "exp1": {...}, "exp2": {...} } }
+   * console.log(result.diffs);   // Differences from baseline (if provided)
+   * ```
+   */
+  async compare(
+    experimentIds: string[],
+    options: CompareExperimentsOptions = {}
+  ): Promise<ComparisonResult> {
+    this.log('Comparing experiments', { ids: experimentIds });
+
+    if (experimentIds.length < 2) {
+      throw new EvaluationError('At least 2 experiments are required for comparison');
+    }
+    if (experimentIds.length > 10) {
+      throw new EvaluationError('Maximum 10 experiments can be compared at once');
+    }
+
+    const payload: Record<string, unknown> = { experiment_ids: experimentIds };
+    if (options.baselineId) {
+      payload.baseline_id = options.baselineId;
+    }
+
+    const rawResponse = await this.httpPost<APIResponse<ComparisonResultData>>(
+      '/v1/experiments/compare',
+      payload
+    );
+    const data = this.unwrapResponse(rawResponse);
+
+    return toComparisonResult(data);
   }
 }
