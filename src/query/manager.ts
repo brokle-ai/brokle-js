@@ -188,7 +188,7 @@ export class QueryManager {
    * const result = await client.query.query({
    *   filter: 'service.name=chatbot',
    *   limit: 50,
-   *   offset: 100,
+   *   page: 2,
    * });
    * ```
    */
@@ -208,8 +208,8 @@ export class QueryManager {
     if (options.limit !== undefined) {
       requestBody.limit = options.limit;
     }
-    if (options.offset !== undefined) {
-      requestBody.offset = options.offset;
+    if (options.page !== undefined) {
+      requestBody.page = options.page;
     }
 
     const rawResponse = await this.httpPost<APIResponse<SpanQueryResponse>>(
@@ -219,8 +219,7 @@ export class QueryManager {
     const data = this.unwrapResponse(rawResponse);
 
     const spans = data.spans.map(transformSpan);
-    const limit = options.limit ?? 1000;
-    const offset = options.offset ?? 0;
+    const page = options.page ?? 1;
 
     this.log('Query completed', {
       count: spans.length,
@@ -232,7 +231,7 @@ export class QueryManager {
       spans,
       total: data.total_count,
       hasMore: data.has_more,
-      nextOffset: data.has_more ? offset + limit : undefined,
+      nextPage: data.has_more ? page + 1 : undefined,
     };
   }
 
@@ -264,14 +263,14 @@ export class QueryManager {
    */
   async *queryIter(options: QueryOptions): AsyncIterable<QueriedSpan> {
     const batchSize = options.limit ?? 100;
-    let offset = options.offset ?? 0;
+    let page = options.page ?? 1;
     let hasMore = true;
 
     while (hasMore) {
       const result = await this.query({
         ...options,
         limit: batchSize,
-        offset,
+        page,
       });
 
       for (const span of result.spans) {
@@ -279,7 +278,7 @@ export class QueryManager {
       }
 
       hasMore = result.hasMore;
-      offset = result.nextOffset ?? offset + batchSize;
+      page = result.nextPage ?? page + 1;
     }
   }
 

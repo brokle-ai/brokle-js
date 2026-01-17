@@ -1,116 +1,52 @@
-/**
- * Experiments Type Definitions
- *
- * Core types for the experiment and evaluation system.
- */
-
 import type { ScoreResult, Scorer } from '../scores/types';
 import type { Dataset } from '../datasets';
 import type { QueriedSpan } from '../query';
 
-/**
- * Function to extract input from a queried span
- */
 export type SpanExtractInput = (span: QueriedSpan) => Record<string, unknown>;
-
-/**
- * Function to extract output from a queried span
- */
 export type SpanExtractOutput = (span: QueriedSpan) => unknown;
-
-/**
- * Function to extract expected output from a queried span
- */
 export type SpanExtractExpected = (span: QueriedSpan) => unknown;
 
-/**
- * Experiment metadata (for list/get operations)
- */
 export interface Experiment {
-  /** Unique identifier for the experiment */
   id: string;
-  /** Experiment name */
   name: string;
-  /** ID of the dataset used */
   datasetId: string;
-  /** Experiment status */
   status: 'running' | 'completed' | 'failed';
-  /** Additional metadata */
   metadata?: Record<string, unknown>;
-  /** ISO timestamp when created */
   createdAt: string;
-  /** ISO timestamp when last updated */
   updatedAt: string;
 }
 
-/**
- * Single evaluation item result
- */
 export interface EvaluationItem {
-  /** ID of the dataset item evaluated (for dataset-based evaluation) */
   datasetItemId?: string;
-  /** ID of the span evaluated (for span-based evaluation) */
   spanId?: string;
-  /** Input data passed to task or extracted from span */
   input: Record<string, unknown>;
-  /** Output from the task function or extracted from span */
   output: unknown;
-  /** Expected output for comparison */
   expected?: unknown;
-  /** Scores from all scorers */
   scores: ScoreResult[];
-  /** Trial number (when trial_count > 1) */
   trialNumber: number;
-  /** Error message if task/extraction failed */
   error?: string;
 }
 
-/**
- * Per-scorer summary statistics
- */
 export interface SummaryStats {
-  /** Mean score value */
   mean: number;
-  /** Standard deviation */
   stdDev: number;
-  /** Minimum score value */
   min: number;
-  /** Maximum score value */
   max: number;
-  /** Total number of scores */
   count: number;
-  /** Percentage of non-failed scores */
   passRate: number;
 }
 
-/**
- * Complete evaluation results from run()
- */
 export interface EvaluationResults {
-  /** Experiment ID */
   experimentId: string;
-  /** Experiment name */
   experimentName: string;
-  /** Dataset ID used (for dataset-based evaluation) */
   datasetId?: string;
-  /** Source type: 'dataset' or 'spans' */
   source: 'dataset' | 'spans';
-  /** Dashboard URL for the experiment */
   url?: string;
-  /** Per-scorer summary statistics */
   summary: Record<string, SummaryStats>;
-  /** Individual evaluation items */
   items: EvaluationItem[];
 }
 
-/**
- * Task function type - processes input and returns output
- */
 export type TaskFunction = (input: Record<string, unknown>) => Promise<unknown> | unknown;
-
-/**
- * Progress callback type
- */
 export type ProgressCallback = (completed: number, total: number) => void;
 
 /**
@@ -161,31 +97,35 @@ export interface RunOptions {
   onProgress?: ProgressCallback;
 }
 
-/**
- * Options for listing experiments
- */
 export interface ListExperimentsOptions {
-  /** Maximum number of experiments to return (default: 50) */
+  /** Maximum experiments to return (default: 50, valid: 10, 25, 50, 100) */
   limit?: number;
-  /** Number of experiments to skip (default: 0) */
-  offset?: number;
+  /** Page number (default: 1, 1-indexed) */
+  page?: number;
 }
 
-/**
- * Configuration for the experiments manager
- */
 export interface ExperimentsManagerConfig {
-  /** Base URL for the API */
   baseUrl: string;
-  /** API key for authentication */
   apiKey: string;
-  /** Enable debug logging */
   debug?: boolean;
 }
 
-/**
- * API response envelope
- */
+export interface APIPagination {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+export interface APIMeta {
+  request_id?: string;
+  timestamp?: string;
+  version?: string;
+  pagination?: APIPagination;
+}
+
 export interface APIResponse<T> {
   success: boolean;
   data?: T;
@@ -194,11 +134,9 @@ export interface APIResponse<T> {
     message: string;
     type?: string;
   };
+  meta?: APIMeta;
 }
 
-/**
- * Experiment API response data
- */
 export interface ExperimentData {
   id: string;
   name: string;
@@ -209,9 +147,6 @@ export interface ExperimentData {
   updated_at: string;
 }
 
-/**
- * Item to submit to the API
- */
 export interface SubmitItemData {
   dataset_item_id: string;
   input: Record<string, unknown>;

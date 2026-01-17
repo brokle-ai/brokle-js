@@ -93,9 +93,6 @@ export class DatasetsManager {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Unwrap API response envelope
-   */
   private unwrapResponse<T>(response: APIResponse<T>): T {
     if (!response.success) {
       const error = response.error;
@@ -172,7 +169,7 @@ export class DatasetsManager {
   /**
    * List all datasets.
    *
-   * @param options - Pagination options (limit, offset)
+   * @param options - Pagination options (limit, page)
    * @returns Array of Dataset instances
    *
    * @example
@@ -184,18 +181,18 @@ export class DatasetsManager {
    * ```
    */
   async list(options: ListDatasetsOptions = {}): Promise<Dataset[]> {
-    const { limit = 50, offset = 0 } = options;
+    const { limit = 50, page = 1 } = options;
 
-    this.log('Listing datasets', { limit, offset });
+    this.log('Listing datasets', { limit, page });
 
-    const rawResponse = await this.httpGet<APIResponse<{ datasets: DatasetData[]; total: number }>>(
+    const rawResponse = await this.httpGet<APIResponse<DatasetData[]>>(
       '/v1/datasets',
-      { limit, offset }
+      { limit, page }
     );
 
     const data = this.unwrapResponse(rawResponse);
 
-    return data.datasets.map(
+    return data.map(
       (d) =>
         new Dataset({ baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug }, d)
     );

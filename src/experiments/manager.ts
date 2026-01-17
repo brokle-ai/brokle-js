@@ -747,7 +747,7 @@ export class ExperimentsManager {
   /**
    * List all experiments.
    *
-   * @param options - Pagination options (limit, offset)
+   * @param options - Pagination options (limit, page)
    * @returns Array of Experiment metadata
    *
    * @example
@@ -759,16 +759,17 @@ export class ExperimentsManager {
    * ```
    */
   async list(options: ListExperimentsOptions = {}): Promise<Experiment[]> {
-    const { limit = 50, offset = 0 } = options;
+    const { limit = 50, page = 1 } = options;
 
-    this.log('Listing experiments', { limit, offset });
+    this.log('Listing experiments', { limit, page });
 
-    const rawResponse = await this.httpGet<
-      APIResponse<{ experiments: ExperimentData[]; total: number }>
-    >('/v1/experiments', { limit, offset });
+    const rawResponse = await this.httpGet<APIResponse<ExperimentData[]>>(
+      '/v1/experiments',
+      { limit, page }
+    );
 
     const data = this.unwrapResponse(rawResponse);
 
-    return data.experiments.map(toExperiment);
+    return data.map(toExperiment);
   }
 }

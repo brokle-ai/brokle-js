@@ -159,9 +159,6 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     return response.json() as Promise<T>;
   }
 
-  /**
-   * Unwrap API response envelope
-   */
   private unwrapResponse<T>(response: APIResponse<T>): T {
     if (!response.success) {
       const error = response.error;
@@ -176,6 +173,18 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     }
 
     return response.data;
+  }
+
+  private extractTotal<T>(response: APIResponse<T>): number {
+    if (!response.success) {
+      const error = response.error;
+      if (!error) {
+        throw new DatasetError('Request failed with no error details');
+      }
+      throw new DatasetError(`${error.code}: ${error.message}`);
+    }
+
+    return response.meta?.pagination?.total ?? 0;
   }
 
   /**
@@ -212,29 +221,28 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   /**
    * Fetch items with pagination.
    *
-   * @param options - Pagination options (limit, offset)
+   * @param options - Pagination options (limit, page)
    * @returns Array of dataset items
    *
    * @example
    * ```typescript
-   * const items = await dataset.getItems({ limit: 10, offset: 0 });
+   * const items = await dataset.getItems({ limit: 10, page: 1 });
    * for (const item of items) {
    *   console.log(item.input);
    * }
    * ```
    */
   async getItems(options: GetItemsOptions = {}): Promise<DatasetItem[]> {
-    const { limit = 50, offset = 0 } = options;
+    const { limit = 50, page = 1 } = options;
 
-    this.log(`Fetching items from dataset ${this._id}: limit=${limit}, offset=${offset}`);
+    this.log(`Fetching items from dataset ${this._id}: limit=${limit}, page=${page}`);
 
-    const rawResponse = await this.httpGet<APIResponse<{ items: DatasetItem[]; total: number }>>(
+    const rawResponse = await this.httpGet<APIResponse<DatasetItem[]>>(
       `/v1/datasets/${this._id}/items`,
-      { limit, offset }
+      { limit, page }
     );
 
-    const data = this.unwrapResponse(rawResponse);
-    return data.items;
+    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -249,13 +257,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
    * ```
    */
   async count(): Promise<number> {
-    const rawResponse = await this.httpGet<APIResponse<{ items: DatasetItem[]; total: number }>>(
+    const rawResponse = await this.httpGet<APIResponse<DatasetItem[]>>(
       `/v1/datasets/${this._id}/items`,
-      { limit: 1, offset: 0 }
+      { limit: 1, page: 1 }
     );
 
-    const data = this.unwrapResponse(rawResponse);
-    return data.total;
+    return this.extractTotal(rawResponse);
   }
 
   /**
@@ -272,11 +279,11 @@ export class Dataset implements AsyncIterable<DatasetItem> {
    * ```
    */
   async *[Symbol.asyncIterator](): AsyncIterableIterator<DatasetItem> {
-    let offset = 0;
+    let page = 1;
     const limit = 50;
 
     while (true) {
-      const items = await this.getItems({ limit, offset });
+      const items = await this.getItems({ limit, page });
 
       if (items.length === 0) {
         break;
@@ -290,7 +297,7 @@ export class Dataset implements AsyncIterable<DatasetItem> {
         break;
       }
 
-      offset += limit;
+      page += 1;
     }
   }
 
@@ -509,20 +516,11 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     return this.exportItems();
   }
 
-  /**
-   * Internal method to fetch all items for export.
-   */
   private async exportItems(): Promise<DatasetItem[]> {
-    const rawResponse = await this.httpGet<APIResponse<DatasetItem[] | { items: DatasetItem[] }>>(
+    const rawResponse = await this.httpGet<APIResponse<DatasetItem[]>>(
       `/v1/datasets/${this._id}/items/export`
     );
 
-    const data = this.unwrapResponse(rawResponse);
-
-    // Handle both list and dict responses
-    if (Array.isArray(data)) {
-      return data;
-    }
-    return (data as { items: DatasetItem[] }).items ?? [];
+    return this.unwrapResponse(rawResponse);
   }
 }

@@ -38,11 +38,9 @@
  * @packageDocumentation
  */
 
-// Manager
 export { ScoresManager } from './manager';
 export type { ScoresManagerConfig } from './types';
 
-// Types
 export { ScoreType, ScoreSource } from './types';
 export type {
   ScoreResult,
@@ -53,8 +51,8 @@ export type {
   BatchScoreOptions,
   ScoreRequest,
   ScoreResponse,
+  BatchScoreResult,
   APIResponse,
 } from './types';
 
-// Errors
 export { ScoreError, ScorerError } from './errors';
