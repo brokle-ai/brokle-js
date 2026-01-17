@@ -27,6 +27,7 @@ import { DatasetsManager } from './datasets';
 import { ScoresManager } from './scores';
 import { ExperimentsManager } from './experiments';
 import { QueryManager } from './query';
+import { AnnotationsManager } from './annotations';
 import { SDK_VERSION, SDK_NAME } from './version';
 
 /**
@@ -54,6 +55,7 @@ export class Brokle {
   private scoresManager: ScoresManager | null = null;
   private experimentsManager: ExperimentsManager | null = null;
   private queryManager: QueryManager | null = null;
+  private annotationsManager: AnnotationsManager | null = null;
 
   /**
    * Creates a new Brokle client instance
@@ -659,6 +661,42 @@ export class Brokle {
   }
 
   /**
+   * Get the Annotations manager for annotation queue operations
+   *
+   * Provides methods for adding items to annotation queues for
+   * human-in-the-loop (HITL) evaluation workflows.
+   *
+   * @returns AnnotationsManager instance (lazily initialized)
+   *
+   * @example
+   * ```typescript
+   * // Add traces to annotation queue
+   * const result = await client.annotations.addTraces(
+   *   "queue123",
+   *   ["trace1", "trace2", "trace3"],
+   *   { priority: 5 }
+   * );
+   * console.log(`Added ${result.created} items`);
+   *
+   * // Add items with mixed types
+   * await client.annotations.addItems("queue123", [
+   *   { objectId: "trace1", objectType: "trace" },
+   *   { objectId: "span1", objectType: "span", priority: 10 },
+   * ]);
+   * ```
+   */
+  get annotations(): AnnotationsManager {
+    if (!this.annotationsManager) {
+      this.annotationsManager = new AnnotationsManager({
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        debug: this.config.debug,
+      });
+    }
+    return this.annotationsManager;
+  }
+
+  /**
    * Force flush all pending telemetry to backend
    * Use before process exit in serverless/CLI applications
    *
@@ -722,6 +760,50 @@ export class Brokle {
     }
 
     await Promise.all(shutdownPromises);
+  }
+
+  /**
+   * Verify connection to Brokle server.
+   *
+   * Makes an async request to validate API key.
+   * Use for development/testing only - adds latency.
+   *
+   * @returns Promise resolving to true if authenticated, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const client = new Brokle({ apiKey: 'bk_...' });
+   * if (await client.authCheck()) {
+   *   console.log('Connected!');
+   * }
+   * ```
+   */
+  async authCheck(): Promise<boolean> {
+    // If SDK is disabled, return false (no-op)
+    if (!this.config.enabled) {
+      return false;
+    }
+
+    try {
+      const url = `${this.config.baseUrl}/v1/auth/validate-key`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': this.config.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = (await response.json()) as { success?: boolean };
+      return data?.success === true;
+    } catch {
+      return false;
+    }
   }
 
   /**
