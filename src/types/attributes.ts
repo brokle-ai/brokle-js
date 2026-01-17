@@ -93,7 +93,7 @@ export const BrokleOtelSpanAttributes = {
   // ========== Brokle Score Infrastructure ==========
   BROKLE_SCORE_NAME: 'brokle.score.name',
   BROKLE_SCORE_VALUE: 'brokle.score.value',
-  BROKLE_SCORE_DATA_TYPE: 'brokle.score.data_type',
+  BROKLE_SCORE_TYPE: 'brokle.score.type',
   BROKLE_SCORE_COMMENT: 'brokle.score.comment',
 
   // ========== Framework Identification ==========

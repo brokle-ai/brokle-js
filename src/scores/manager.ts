@@ -15,6 +15,7 @@ import type {
   ScoreValue,
   Scorer,
   APIResponse,
+  BatchScoreResult,
 } from './types';
 import { ScoreType, ScoreSource } from './types';
 import { ScoreError } from './errors';
@@ -171,18 +172,19 @@ export class ScoresManager {
    * Submit multiple scores in a batch.
    *
    * @param scores - Array of score options
-   * @returns Array of score responses
+   * @returns Batch result with count of created scores
    *
    * @example
    * ```typescript
-   * await client.scores.batch([
+   * const result = await client.scores.batch([
    *   { traceId: "abc123", name: "accuracy", value: 0.9 },
    *   { traceId: "abc123", name: "fluency", value: 0.85 },
    *   { traceId: "def456", name: "relevance", value: 0.95 },
    * ]);
+   * console.log(`Created ${result.created} scores`);
    * ```
    */
-  async batch(scores: BatchScoreOptions[]): Promise<ScoreResponse[]> {
+  async batch(scores: BatchScoreOptions[]): Promise<BatchScoreResult> {
     const requests: ScoreRequest[] = scores.map((s) => ({
       trace_id: s.traceId,
       name: s.name,
@@ -196,18 +198,14 @@ export class ScoresManager {
 
     this.log('Batch submitting scores', { count: requests.length });
 
-    const rawResponse = await this.httpPost<APIResponse<{ scores: ScoreResponse[] }>>(
+    const rawResponse = await this.httpPost<APIResponse<BatchScoreResult>>(
       '/v1/scores/batch',
       { scores: requests }
     );
 
-    const data = this.unwrapResponse(rawResponse);
-    return data.scores;
+    return this.unwrapResponse(rawResponse);
   }
 
-  /**
-   * Execute scorer function and submit results
-   */
   private async submitWithScorer(options: SubmitScoreOptions): Promise<ScoreResponse | ScoreResponse[]> {
     const {
       traceId,

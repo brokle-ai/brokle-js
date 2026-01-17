@@ -1,85 +1,43 @@
-/**
- * Dataset Type Definitions
- */
-
-/**
- * Input for creating dataset items
- */
 export interface DatasetItemInput {
-  /** Input data for evaluation (arbitrary object) */
   input: Record<string, unknown>;
-  /** Expected output for comparison (optional) */
   expected?: Record<string, unknown>;
-  /** Additional metadata (optional) */
   metadata?: Record<string, unknown>;
 }
 
-/**
- * A single item in a dataset (response from API)
- */
 export interface DatasetItem {
-  /** Unique identifier for the item */
   id: string;
-  /** ID of the parent dataset */
   dataset_id: string;
-  /** Input data for evaluation */
   input: Record<string, unknown>;
-  /** Expected output for comparison */
   expected?: Record<string, unknown>;
-  /** Additional metadata */
   metadata?: Record<string, unknown>;
   /** Item source (manual, trace, span, csv, json, sdk) */
   source: DatasetItemSource;
-  /** Source trace ID if created from trace */
   source_trace_id?: string;
-  /** Source span ID if created from span */
   source_span_id?: string;
-  /** ISO timestamp when created */
   created_at: string;
 }
 
-/**
- * Source type for dataset items
- */
 export type DatasetItemSource = 'manual' | 'trace' | 'span' | 'csv' | 'json' | 'sdk';
 
-/**
- * Field mapping for bulk import operations
- */
 export interface KeysMapping {
-  /** Keys to extract for input field */
   inputKeys?: string[];
-  /** Keys to extract for expected field */
   expectedKeys?: string[];
-  /** Keys to extract for metadata field */
   metadataKeys?: string[];
 }
 
-/**
- * Result of a bulk import operation
- */
 export interface BulkImportResult {
-  /** Number of items created */
   created: number;
   /** Number of items skipped (duplicates) */
   skipped: number;
-  /** List of error messages */
   errors?: string[];
 }
 
-/**
- * Options for import operations
- */
 export interface ImportOptions {
-  /** Optional field mapping for extraction */
   keysMapping?: KeysMapping;
   /** Skip items with duplicate content (default: true) */
   deduplicate?: boolean;
 }
 
-/**
- * Column mapping for CSV import operations
- */
 export interface CSVColumnMapping {
   /** Column name to use for input field (required) */
   inputColumn: string;
@@ -89,9 +47,6 @@ export interface CSVColumnMapping {
   metadataColumns?: string[];
 }
 
-/**
- * Options for CSV import operations
- */
 export interface CSVImportOptions {
   /** Whether the CSV has a header row (default: true) */
   hasHeader?: boolean;
@@ -99,39 +54,21 @@ export interface CSVImportOptions {
   deduplicate?: boolean;
 }
 
-/**
- * Dataset data from API response
- */
 export interface DatasetData {
-  /** Unique identifier for the dataset */
   id: string;
-  /** Dataset name */
   name: string;
-  /** Dataset description */
   description?: string;
-  /** Additional metadata */
   metadata?: Record<string, unknown>;
-  /** ISO timestamp when created */
   created_at: string;
-  /** ISO timestamp when last updated */
   updated_at: string;
 }
 
-/**
- * Options for creating a dataset
- */
 export interface CreateDatasetOptions {
-  /** Dataset name (required) */
   name: string;
-  /** Dataset description */
   description?: string;
-  /** Additional metadata */
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Options for updating a dataset
- */
 export interface UpdateDatasetOptions {
   /** New name for the dataset */
   name?: string;
@@ -141,53 +78,48 @@ export interface UpdateDatasetOptions {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Options for fetching items with pagination
- */
 export interface GetItemsOptions {
-  /** Maximum number of items to return (default: 50) */
+  /** Maximum items to return (default: 50, valid: 10, 25, 50, 100) */
   limit?: number;
-  /** Number of items to skip (default: 0) */
-  offset?: number;
+  /** Page number (default: 1, 1-indexed) */
+  page?: number;
 }
 
-/**
- * Options for listing datasets
- */
 export interface ListDatasetsOptions {
-  /** Maximum number of datasets to return (default: 50) */
+  /** Maximum datasets to return (default: 50, valid: 10, 25, 50, 100) */
   limit?: number;
-  /** Number of datasets to skip (default: 0) */
-  offset?: number;
+  /** Page number (default: 1, 1-indexed) */
+  page?: number;
 }
 
-/**
- * Internal configuration passed to Dataset
- */
 export interface DatasetConfig {
-  /** Base URL for the API */
   baseUrl: string;
-  /** API key for authentication */
   apiKey: string;
-  /** Enable debug logging */
   debug?: boolean;
 }
 
-/**
- * Configuration for the datasets manager
- */
 export interface DatasetsManagerConfig {
-  /** Base URL for the API */
   baseUrl: string;
-  /** API key for authentication */
   apiKey: string;
-  /** Enable debug logging */
   debug?: boolean;
 }
 
-/**
- * API response envelope
- */
+export interface APIPagination {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  has_next: boolean;
+  has_prev: boolean;
+}
+
+export interface APIMeta {
+  request_id?: string;
+  timestamp?: string;
+  version?: string;
+  pagination?: APIPagination;
+}
+
 export interface APIResponse<T> {
   success: boolean;
   data?: T;
@@ -196,6 +128,7 @@ export interface APIResponse<T> {
     message: string;
     type?: string;
   };
+  meta?: APIMeta;
 }
 
 // ===========================================================================
