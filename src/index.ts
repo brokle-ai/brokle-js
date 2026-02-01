@@ -227,3 +227,16 @@ export type { BrokleOptions } from './utils/wrappers';
 // Top-level evaluate function (Braintrust/LangSmith pattern)
 export { evaluate, createKeyMappingScorer, KeyMappingScorer } from './evaluate';
 export type { EvaluateOptions, ScoringKeyMapping } from './evaluate';
+
+// Enhanced Errors (with actionable guidance) - Langfuse pattern (no prefix)
+export {
+  BrokleError,
+  AuthenticationError,
+  ConnectionError,
+  ValidationError,
+  RateLimitError,
+  NotFoundError,
+  ServerError,
+  raiseForStatus,
+} from './errors';
+export type { BrokleErrorDetails } from './errors';

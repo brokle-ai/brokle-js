@@ -2,6 +2,34 @@
 
 OpenTelemetry-native observability SDK for AI applications. Track, monitor, and optimize your LLM applications with industry-standard OTLP traces.
 
+## ⚡ Quick Start: Evaluation
+
+Run evaluations with a single function call (similar to Braintrust/LangSmith):
+
+```typescript
+import { evaluate, ExactMatch, Contains } from 'brokle';
+
+// Define your task
+async function myLLMTask(item: { input: string }) {
+  // Your LLM call here
+  return { output: `Response to: ${item.input}` };
+}
+
+// Run evaluation
+const results = await evaluate({
+  task: myLLMTask,
+  data: [
+    { input: 'Hello', expected: 'Response to: Hello' },
+    { input: 'World', expected: 'Response to: World' },
+  ],
+  evaluators: [new ExactMatch(), new Contains({ substring: 'Response' })],
+  experimentName: 'my-first-eval',
+});
+
+console.log(`Experiment: ${results.experimentName}`);
+console.log(`View at: ${results.url}`);
+```
+
 ## Features
 
 - ✅ **OTEL-Native**: Built on OpenTelemetry SDK (industry standard)
@@ -11,6 +39,8 @@ OpenTelemetry-native observability SDK for AI applications. Track, monitor, and 
 - ✅ **Zero Config**: Works out of the box with environment variables
 - ✅ **Gzip Compression**: Automatic bandwidth optimization
 - ✅ **Dual Build**: ESM + CJS support
+- ✅ **Enhanced Errors**: Actionable error messages with fix hints
+- ✅ **Graceful Degradation**: Tracer errors never break your app
 
 ## Installation
 
@@ -339,6 +369,76 @@ Uses `TraceIdRatioBasedSampler` for deterministic sampling:
 ## License
 
 MIT
+
+## 🔧 Enhanced Error Messages
+
+Errors include actionable guidance:
+
+```typescript
+import { AuthenticationError, ConnectionError, ValidationError } from 'brokle';
+
+try {
+  const client = getClient();
+} catch (e) {
+  if (e instanceof AuthenticationError) {
+    console.log(e.hint);  // Shows how to fix authentication issues
+  } else if (e instanceof ConnectionError) {
+    console.log(e.hint);  // Shows how to fix connection issues
+  } else if (e instanceof ValidationError) {
+    console.log(e.hint);  // Shows how to fix validation issues
+  }
+}
+```
+
+Available error classes (following Langfuse naming pattern):
+- `BrokleError` - Base error class
+- `AuthenticationError` - API key invalid/missing
+- `ConnectionError` - Server unreachable
+- `ValidationError` - Invalid request data
+- `RateLimitError` - Too many requests
+- `NotFoundError` - Resource not found
+- `ServerError` - Server-side error
+
+## 📦 Migration from Other SDKs
+
+### From Braintrust
+
+```typescript
+// Braintrust
+import { Eval } from 'braintrust';
+Eval('my-project', { data: dataset, task: fn, scores: [score] });
+
+// Brokle
+import { evaluate } from 'brokle';
+await evaluate({ task: fn, data: dataset, evaluators: [scorer], experimentName: 'my-project' });
+```
+
+### From LangSmith
+
+```typescript
+// LangSmith
+import { traceable } from 'langsmith';
+const myFunction = traceable(async () => { /* ... */ });
+
+// Brokle
+import { observe } from 'brokle';
+class MyService {
+  @observe()
+  async myFunction() { /* ... */ }
+}
+```
+
+### From Langfuse
+
+```typescript
+// Langfuse
+import { observeOpenAI } from 'langfuse';
+const client = observeOpenAI(new OpenAI());
+
+// Brokle
+import { wrapOpenAI } from 'brokle/openai';
+const client = wrapOpenAI(new OpenAI());
+```
 
 ## Support
 
