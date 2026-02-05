@@ -909,7 +909,7 @@ describe('MaskingHelper - Integration', () => {
     });
 
     // Create real span (triggers OpenTelemetry span creation)
-    await client.traced('test-real-masking', async (span) => {
+    await client.startActiveSpan('test-real-masking', async (span) => {
       span.setAttribute(Attrs.INPUT_VALUE, 'Contact john@example.com');
       span.setAttribute(Attrs.OUTPUT_VALUE, 'Sent to admin@company.org');
       span.setAttribute(Attrs.METADATA, { support: 'help@example.com' });

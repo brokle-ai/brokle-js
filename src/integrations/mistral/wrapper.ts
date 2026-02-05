@@ -127,7 +127,7 @@ function tracedChatComplete(originalFn: (...args: any[]) => Promise<any>, brokle
     const cleanArgs = [cleanParams, ...args.slice(1)];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await brokleClient.traced(spanName, async (span: any) => {
+    return await brokleClient.startActiveSpan(spanName, async (span: any) => {
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
@@ -242,7 +242,7 @@ function tracedEmbeddings(originalFn: (...args: any[]) => Promise<any>, brokleCl
     const cleanArgs = [cleanParams, ...args.slice(1)];
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await brokleClient.traced(spanName, async (span: any) => {
+    return await brokleClient.startActiveSpan(spanName, async (span: any) => {
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'embedding');

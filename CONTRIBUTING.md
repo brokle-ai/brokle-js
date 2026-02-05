@@ -280,13 +280,13 @@ const client = getClient({
 });
 
 // Traced operations with OTEL attributes
-await client.traced('my-operation', async (span) => {
+await client.startActiveSpan('my-operation', async (span) => {
   span.setAttribute(Attrs.USER_ID, 'user-123');
   return await doWork();
 });
 
 // LLM generation with GenAI attributes
-await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
   const response = await openai.chat.completions.create({...});
   span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, response.usage.prompt_tokens);
   return response;

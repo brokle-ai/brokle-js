@@ -169,7 +169,7 @@ export class Brokle {
   }
 
   /**
-   * Create a traced span with async callback
+   * Create an active span with async callback
    *
    * @param name - Span name
    * @param fn - Async function to execute within span
@@ -180,7 +180,7 @@ export class Brokle {
    * @example
    * ```typescript
    * // Generic input/output
-   * const result = await client.traced('api-request', async (span) => {
+   * const result = await client.startActiveSpan('api-request', async (span) => {
    *   return processData();
    * }, undefined, {
    *   version: '1.0',
@@ -189,7 +189,7 @@ export class Brokle {
    * });
    *
    * // LLM messages (auto-detected)
-   * await client.traced('llm-trace', async (span) => {
+   * await client.startActiveSpan('llm-trace', async (span) => {
    *   // ...
    * }, undefined, {
    *   input: [{ role: 'user', content: 'Hello' }],
@@ -197,14 +197,14 @@ export class Brokle {
    * });
    *
    * // For prompt linking, use linkPrompt() or updateCurrentSpan() inside:
-   * await client.traced('llm-call', async (span) => {
+   * await client.startActiveSpan('llm-call', async (span) => {
    *   const prompt = await client.prompts.get("greeting");
    *   client.linkPrompt(prompt);  // Dynamic linking
    *   // ...
    * });
    * ```
    */
-  async traced<T>(
+  async startActiveSpan<T>(
     name: string,
     fn: (span: Span) => Promise<T>,
     attributes?: Attributes,
@@ -271,7 +271,7 @@ export class Brokle {
   }
 
   /**
-   * Create a traced LLM generation span
+   * Create an active LLM generation span
    *
    * @param name - Operation name (e.g., 'chat', 'completion')
    * @param model - Model name (e.g., 'gpt-4')
@@ -282,14 +282,14 @@ export class Brokle {
    *
    * @example
    * ```typescript
-   * const response = await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+   * const response = await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
    *   const response = await openai.chat.completions.create({...});
    *   span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([...]));
    *   return response;
    * }, { version: '1.0' });
    * ```
    */
-  async generation<T>(
+  async startActiveGeneration<T>(
     name: string,
     model: string,
     provider: string,
@@ -303,7 +303,7 @@ export class Brokle {
       [Attrs.GEN_AI_OPERATION_NAME]: name,
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
     };
-    return await this.traced(spanName, fn, attrs, options);
+    return await this.startActiveSpan(spanName, fn, attrs, options);
   }
 
   /**
@@ -320,7 +320,7 @@ export class Brokle {
    * const prompt = await client.prompts.get("greeting");
    *
    * // Inside any traced span
-   * await client.traced('my-operation', async (span) => {
+   * await client.startActiveSpan('my-operation', async (span) => {
    *   client.linkPrompt(prompt);  // Links to this span
    *   // ... do work
    * });
@@ -369,7 +369,7 @@ export class Brokle {
    * @example
    * ```typescript
    * // Inside a traced function, dynamically link a prompt
-   * await client.traced('my-operation', async (span) => {
+   * await client.startActiveSpan('my-operation', async (span) => {
    *   const prompt = await client.prompts.get("assistant");
    *   client.updateCurrentSpan({ prompt });
    *   // ... do work

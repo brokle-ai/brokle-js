@@ -254,7 +254,7 @@ function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brok
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await brokleClient.traced(spanName, async (span: any) => {
+    return await brokleClient.startActiveSpan(spanName, async (span: any) => {
       const startTime = Date.now();
 
       for (const [key, value] of Object.entries(attributes)) {
@@ -320,7 +320,7 @@ function tracedCompletion(originalFn: (...args: any[]) => Promise<any>, brokleCl
     addPromptAttributes(attributes, brokleOpts);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await brokleClient.traced(spanName, async (span: any) => {
+    return await brokleClient.startActiveSpan(spanName, async (span: any) => {
       const startTime = Date.now();
 
       for (const [key, value] of Object.entries(attributes)) {
@@ -392,7 +392,7 @@ function tracedEmbedding(originalFn: (...args: any[]) => Promise<any>, brokleCli
     addPromptAttributes(attributes, brokleOpts);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await brokleClient.traced(spanName, async (span: any) => {
+    return await brokleClient.startActiveSpan(spanName, async (span: any) => {
       const startTime = Date.now();
 
       for (const [key, value] of Object.entries(attributes)) {

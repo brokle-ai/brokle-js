@@ -3,7 +3,7 @@
  *
  * Demonstrates:
  * - SDK initialization
- * - Simple tracing with traced()
+ * - Simple tracing with startActiveSpan()
  * - LLM generation tracing
  * - Decorators
  * - Attribute setting
@@ -25,7 +25,7 @@ const client = getClient({
 async function simpleTracedOperation() {
   console.log('\n=== Simple Traced Operation ===');
 
-  const result = await client.traced('simple-operation', async (span) => {
+  const result = await client.startActiveSpan('simple-operation', async (span) => {
     // Set custom attributes
     span.setAttribute('operation.type', 'demo');
     span.setAttribute(Attrs.USER_ID, 'user-123');
@@ -45,18 +45,18 @@ async function simpleTracedOperation() {
 async function nestedSpans() {
   console.log('\n=== Nested Spans ===');
 
-  await client.traced('parent-operation', async (parentSpan) => {
+  await client.startActiveSpan('parent-operation', async (parentSpan) => {
     parentSpan.setAttribute('level', 'parent');
 
     // First child operation
-    await client.traced('child-operation-1', async (childSpan) => {
+    await client.startActiveSpan('child-operation-1', async (childSpan) => {
       childSpan.setAttribute('level', 'child');
       childSpan.setAttribute('child.id', 1);
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     // Second child operation
-    await client.traced('child-operation-2', async (childSpan) => {
+    await client.startActiveSpan('child-operation-2', async (childSpan) => {
       childSpan.setAttribute('level', 'child');
       childSpan.setAttribute('child.id', 2);
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -71,7 +71,7 @@ async function nestedSpans() {
 async function llmGenerationExample() {
   console.log('\n=== LLM Generation Tracing ===');
 
-  const response = await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+  const response = await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
     // Simulate LLM API call
     const startTime = Date.now();
 
@@ -161,7 +161,7 @@ async function errorHandling() {
   console.log('\n=== Error Handling ===');
 
   try {
-    await client.traced('operation-with-error', async (span) => {
+    await client.startActiveSpan('operation-with-error', async (span) => {
       span.setAttribute('will.fail', true);
 
       // Simulate error
@@ -178,7 +178,7 @@ async function errorHandling() {
 async function customMetadata() {
   console.log('\n=== Custom Metadata ===');
 
-  await client.traced('custom-metadata-example', async (span) => {
+  await client.startActiveSpan('custom-metadata-example', async (span) => {
     // Set filterable metadata
     span.setAttribute(Attrs.USER_ID, 'user-789');
     span.setAttribute(Attrs.SESSION_ID, 'session-xyz');

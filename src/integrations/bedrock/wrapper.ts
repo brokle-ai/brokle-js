@@ -142,7 +142,7 @@ async function tracedConverse(
   const spanName = `chat ${modelId}`;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return await brokleClient.traced(spanName, async (span: any) => {
+  return await brokleClient.startActiveSpan(spanName, async (span: any) => {
     const startTime = Date.now();
 
     span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
@@ -289,7 +289,7 @@ async function tracedInvokeModel(
   const spanName = `invoke ${modelId}`;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return await brokleClient.traced(spanName, async (span: any) => {
+  return await brokleClient.startActiveSpan(spanName, async (span: any) => {
     const startTime = Date.now();
 
     span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');

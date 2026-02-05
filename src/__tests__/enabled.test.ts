@@ -249,14 +249,14 @@ describe('BROKLE_ENABLED master switch', () => {
     });
   });
 
-  describe('traced() pass-through', () => {
+  describe('startActiveSpan() pass-through', () => {
     it('should pass through when disabled', async () => {
       const client = new Brokle({
         apiKey: 'bk_1234567890123456789012345678901234567890',
         enabled: false,
       });
 
-      const result = await client.traced('test', async () => {
+      const result = await client.startActiveSpan('test', async () => {
         return 'hello';
       });
 
@@ -269,7 +269,7 @@ describe('BROKLE_ENABLED master switch', () => {
         enabled: false,
       });
 
-      const result = await client.traced('test', async () => {
+      const result = await client.startActiveSpan('test', async () => {
         return { key: 'value', count: 42 };
       });
 
@@ -283,21 +283,21 @@ describe('BROKLE_ENABLED master switch', () => {
       });
 
       await expect(
-        client.traced('test', async () => {
+        client.startActiveSpan('test', async () => {
           throw new Error('test error');
         })
       ).rejects.toThrow('test error');
     });
   });
 
-  describe('generation() pass-through', () => {
+  describe('startActiveGeneration() pass-through', () => {
     it('should pass through when disabled', async () => {
       const client = new Brokle({
         apiKey: 'bk_1234567890123456789012345678901234567890',
         enabled: false,
       });
 
-      const result = await client.generation('chat', 'gpt-4', 'openai', async () => {
+      const result = await client.startActiveGeneration('chat', 'gpt-4', 'openai', async () => {
         return 'response';
       });
 

@@ -27,7 +27,7 @@ const client = getClient({
 async function test1_SimpleSpan() {
   console.log('\n=== Test 1: Simple Span ===');
 
-  await client.traced('e2e-simple-span', async (span) => {
+  await client.startActiveSpan('e2e-simple-span', async (span) => {
     span.setAttribute(Attrs.USER_ID, 'e2e-user-123');  // user.id
     span.setAttribute(Attrs.SESSION_ID, 'e2e-session-456');  // session.id
     span.setAttribute(Attrs.TAGS, JSON.stringify(['e2e', 'test', 'simple']));
@@ -45,19 +45,19 @@ async function test1_SimpleSpan() {
 async function test2_NestedSpans() {
   console.log('\n=== Test 2: Nested Spans ===');
 
-  await client.traced('e2e-parent-span', async (parentSpan) => {
+  await client.startActiveSpan('e2e-parent-span', async (parentSpan) => {
     parentSpan.setAttribute(Attrs.USER_ID, 'e2e-user-nested');
     parentSpan.setAttribute('level', 'parent');
 
     // Child span 1
-    await client.traced('e2e-child-span-1', async (childSpan) => {
+    await client.startActiveSpan('e2e-child-span-1', async (childSpan) => {
       childSpan.setAttribute('level', 'child');
       childSpan.setAttribute('child.id', 1);
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     // Child span 2
-    await client.traced('e2e-child-span-2', async (childSpan) => {
+    await client.startActiveSpan('e2e-child-span-2', async (childSpan) => {
       childSpan.setAttribute('level', 'child');
       childSpan.setAttribute('child.id', 2);
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -72,7 +72,7 @@ async function test2_NestedSpans() {
 async function test3_LLMGeneration() {
   console.log('\n=== Test 3: LLM Generation (Simulated) ===');
 
-  await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+  await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
     const startTime = Date.now();
 
     // Set request attributes
@@ -112,23 +112,23 @@ async function test3_LLMGeneration() {
 async function test4_MultipleSpanTypes() {
   console.log('\n=== Test 4: Multiple Span Types ===');
 
-  await client.traced('e2e-multi-type-parent', async (parentSpan) => {
+  await client.startActiveSpan('e2e-multi-type-parent', async (parentSpan) => {
     // Generation
-    await client.generation('chat', 'gpt-3.5-turbo', 'openai', async (genSpan) => {
+    await client.startActiveGeneration('chat', 'gpt-3.5-turbo', 'openai', async (genSpan) => {
       genSpan.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, 5);
       genSpan.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, 3);
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     // Regular span
-    await client.traced('e2e-processing', async (span) => {
+    await client.startActiveSpan('e2e-processing', async (span) => {
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'span');
       span.setAttribute('processing.type', 'data-transform');
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     // Tool call (simulated)
-    await client.traced('e2e-tool-calculator', async (span) => {
+    await client.startActiveSpan('e2e-tool-calculator', async (span) => {
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'tool');
       span.setAttribute('tool.name', 'calculator');
       span.setAttribute('tool.input', '25 * 4');

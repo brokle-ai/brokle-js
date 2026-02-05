@@ -238,7 +238,7 @@ function tracedMessagesCreate(originalFn: (...args: any[]) => Promise<any>, brok
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return await brokleClient.traced(spanName, async (span: any) => {
+    return await brokleClient.startActiveSpan(spanName, async (span: any) => {
       const startTime = Date.now();
 
       for (const [key, value] of Object.entries(attributes)) {

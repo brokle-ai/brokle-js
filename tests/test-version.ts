@@ -15,14 +15,14 @@ const client = getClient({
 async function testVersion() {
   console.log('Testing version parameter support...\n');
 
-  // Test 1: traced() with version
-  await client.traced('test-traced', async (span) => {
+  // Test 1: startActiveSpan() with version
+  await client.startActiveSpan('test-traced', async (span) => {
     span.setAttribute(Attrs.USER_ID, 'version-user');
     console.log('✓ Traced with version="A"');
   }, undefined, { version: 'A' });
 
-  // Test 2: generation() with version
-  await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+  // Test 2: startActiveGeneration() with version
+  await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
     span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, 10);
     console.log('✓ Generation with version="B"');
   }, { version: 'B' });

@@ -1,6 +1,6 @@
 ---
 name: brokle-javascript-sdk
-description: Use this skill when developing, debugging, or implementing features for the Brokle JavaScript/TypeScript SDK. This includes OTEL-native tracing, traced() callback helpers, @observe decorator, BrokleClient usage, Symbol.for() singleton, flushSync configuration, OpenAI/Anthropic wrappers (Proxy pattern), LangChain integration, or working with the TypeScript SDK monorepo. Triggers: JavaScript SDK, TypeScript SDK, brokle-js, OTLP, GenAI attributes, traced(), Symbol.for(), monorepo.
+description: Use this skill when developing, debugging, or implementing features for the Brokle JavaScript/TypeScript SDK. This includes OTEL-native tracing, startActiveSpan() callback helpers, @observe decorator, BrokleClient usage, Symbol.for() singleton, flushSync configuration, OpenAI/Anthropic wrappers (Proxy pattern), LangChain integration, or working with the TypeScript SDK monorepo. Triggers: JavaScript SDK, TypeScript SDK, brokle-js, OTLP, GenAI attributes, startActiveSpan(), Symbol.for(), monorepo.
 ---
 
 # Brokle JavaScript/TypeScript SDK Development Skill
@@ -86,7 +86,7 @@ import { BrokleLangChainCallback } from 'brokle/langchain';
 ```
 User Code
   ↓
-traced() / @observe / wrappers
+startActiveSpan() / @observe / wrappers
   ↓
 NodeTracerProvider (TraceIdRatioBasedSampler)
   ↓
@@ -175,7 +175,7 @@ class AIService {
 }
 ```
 
-### Pattern 2: traced() Callback Helper
+### Pattern 2: startActiveSpan() Callback Helper
 
 **Basic Usage**:
 ```typescript
@@ -183,7 +183,7 @@ import { getClient } from 'brokle';
 
 const client = getClient();
 
-const result = await client.traced(
+const result = await client.startActiveSpan(
   'my-operation',
   async (span) => {
     span.setAttribute('custom', 'value');
@@ -194,7 +194,7 @@ const result = await client.traced(
 
 **With Version (A/B Testing)**:
 ```typescript
-const result = await client.traced(
+const result = await client.startActiveSpan(
   'my-operation',
   async (span) => {
     span.setAttribute(Attrs.USER_ID, 'user-123');
@@ -205,7 +205,7 @@ const result = await client.traced(
 );
 ```
 
-### Pattern 3: generation() Helper
+### Pattern 3: startActiveGeneration() Helper
 
 **LLM Generation Tracking**:
 ```typescript
@@ -213,7 +213,7 @@ import { getClient, Attrs } from 'brokle';
 
 const client = getClient();
 
-const response = await client.generation(
+const response = await client.startActiveGeneration(
   'chat',
   'gpt-4',
   'openai',
@@ -435,7 +435,7 @@ process.on('SIGTERM', async () => {
 export const handler = async (event, context) => {
   const client = getClient({ flushSync: true });
 
-  const result = await client.traced('lambda-handler', async (span) => {
+  const result = await client.startActiveSpan('lambda-handler', async (span) => {
     const res = await processEvent(event);
     span.setAttribute('result', res);
     return res;

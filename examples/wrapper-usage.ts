@@ -61,7 +61,7 @@ async function openaiWithContext() {
   );
 
   // Wrap in a traced span to add context
-  await brokleClient.traced('user-question', async (span) => {
+  await brokleClient.startActiveSpan('user-question', async (span) => {
     // Add user/session context
     span.setAttribute(Attrs.USER_ID, 'user-456');
     span.setAttribute(Attrs.SESSION_ID, 'session-789');
@@ -188,7 +188,7 @@ async function anthropicWithContext() {
   );
 
   // Wrap in traced span for context
-  await brokleClient.traced('claude-query', async (span) => {
+  await brokleClient.startActiveSpan('claude-query', async (span) => {
     span.setAttribute(Attrs.USER_ID, 'user-999');
     span.setAttribute(Attrs.SESSION_ID, 'session-abc');
 
@@ -224,7 +224,7 @@ async function multiProviderComparison() {
     })
   );
 
-  await brokleClient.traced('provider-comparison', async (span) => {
+  await brokleClient.startActiveSpan('provider-comparison', async (span) => {
     span.setAttribute('comparison.type', 'multi-provider');
 
     console.log('\nComparing providers for same question...');

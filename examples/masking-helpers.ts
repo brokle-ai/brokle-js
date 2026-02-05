@@ -23,7 +23,7 @@ async function example1AllPII() {
     mask: MaskingHelper.maskPII, // Masks emails, phones, SSN, cards, API keys
   });
 
-  await client.traced('process-sensitive-data', async (span) => {
+  await client.startActiveSpan('process-sensitive-data', async (span) => {
     // All these PII types will be automatically masked
     const sensitiveData = `
       Contact: john@example.com
@@ -50,7 +50,7 @@ async function example2SpecificPII() {
     mask: MaskingHelper.maskEmails,
   });
 
-  await clientEmails.traced('email-only', async (span) => {
+  await clientEmails.startActiveSpan('email-only', async (span) => {
     span.setAttribute('input.value', 'Contact john@example.com or call 555-123-4567');
     // Result: "Contact [EMAIL] or call 555-123-4567"
   });
@@ -63,7 +63,7 @@ async function example2SpecificPII() {
     mask: MaskingHelper.maskPhones,
   });
 
-  await clientPhones.traced('phone-only', async (span) => {
+  await clientPhones.startActiveSpan('phone-only', async (span) => {
     span.setAttribute('input.value', 'Email: admin@company.com, Phone: 555-987-6543');
     // Result: "Email: admin@company.com, Phone: [PHONE]"
   });
@@ -84,7 +84,7 @@ async function example3FieldBased() {
     mask: MaskingHelper.fieldMask(['password', 'ssn', 'api_key', 'secret_token']),
   });
 
-  await client.traced('process-credentials', async (span) => {
+  await client.startActiveSpan('process-credentials', async (span) => {
     const credentials = {
       username: 'john_doe', // Not masked
       password: 'super_secret_123', // Masked
@@ -116,7 +116,7 @@ async function example4Combined() {
     mask: combinedMask,
   });
 
-  await client.traced('multi-strategy', async (span) => {
+  await client.startActiveSpan('multi-strategy', async (span) => {
     const data = {
       contact: 'john@example.com or 555-123-4567', // Email & phone masked
       password: 'my_secret', // Field masked
@@ -145,7 +145,7 @@ async function example5CustomPattern() {
     mask: maskIP,
   });
 
-  await client.traced('server-logs', async (span) => {
+  await client.startActiveSpan('server-logs', async (span) => {
     const logMessage = 'Request from 192.168.1.1 to server 10.0.0.5';
     span.setAttribute('input.value', logMessage);
     // Result: "Request from [IP_ADDRESS] to server [IP_ADDRESS]"
@@ -171,7 +171,7 @@ async function example6RealWorld() {
   });
 
   // Simulate LLM generation with sensitive user data
-  await client.generation(
+  await client.startActiveGeneration(
     'customer-support-response',
     'gpt-4',
     'openai',

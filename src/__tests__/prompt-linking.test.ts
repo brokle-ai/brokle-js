@@ -231,7 +231,7 @@ describe('Prompt Linking', () => {
      * for prompt linking. Full integration requires running backend.
      */
 
-    it('traced() supports dynamic prompt linking via linkPrompt()', async () => {
+    it('startActiveSpan() supports dynamic prompt linking via linkPrompt()', async () => {
       const data: PromptData = {
         id: '01HXY123456789ABCDEFGHIJ',
         project_id: 'proj-1',
@@ -257,14 +257,14 @@ describe('Prompt Linking', () => {
       expect(prompt.version).toBe(2);
       expect(prompt.isFallback).toBe(false);
 
-      // In actual usage - link dynamically inside traced():
-      // await client.traced('my-op', async (span) => {
+      // In actual usage - link dynamically inside startActiveSpan():
+      // await client.startActiveSpan('my-op', async (span) => {
       //   const prompt = await client.prompts.get("assistant");
       //   client.linkPrompt(prompt);
       // });
     });
 
-    it('generation() supports dynamic prompt linking', async () => {
+    it('startActiveGeneration() supports dynamic prompt linking', async () => {
       const data: PromptData = {
         id: '01HXY123456789ABCDEFGHIJ',
         project_id: 'proj-1',
@@ -290,8 +290,8 @@ describe('Prompt Linking', () => {
       expect(prompt.version).toBe(5);
       expect(prompt.isFallback).toBe(false);
 
-      // In actual usage - link dynamically inside generation():
-      // await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+      // In actual usage - link dynamically inside startActiveGeneration():
+      // await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
       //   const prompt = await client.prompts.get("chat-prompt");
       //   client.linkPrompt(prompt);
       // });
@@ -323,7 +323,7 @@ describe('Prompt Linking', () => {
       expect(prompt.name).toBe('dynamic-prompt');
 
       // In actual usage:
-      // await client.traced('op', async () => {
+      // await client.startActiveSpan('op', async () => {
       //   const prompt = await client.prompts.get('dynamic-prompt');
       //   client.linkPrompt(prompt);
       // });
@@ -355,7 +355,7 @@ describe('Prompt Linking', () => {
       expect(prompt.version).toBe(4);
 
       // In actual usage:
-      // await client.traced('op', async () => {
+      // await client.startActiveSpan('op', async () => {
       //   client.updateCurrentSpan({ prompt, output: 'result' });
       // });
     });

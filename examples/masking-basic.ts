@@ -69,7 +69,7 @@ async function example1EmailMasking() {
     mask: maskEmails,
   });
 
-  await client.traced('process-user-request', async (span) => {
+  await client.startActiveSpan('process-user-request', async (span) => {
     // This input contains PII
     const userInput = 'Please contact john@example.com for more information';
 
@@ -93,7 +93,7 @@ async function example2ComprehensivePII() {
     mask: maskPIIComprehensive,
   });
 
-  await client.traced('process-contact', async (span) => {
+  await client.startActiveSpan('process-contact', async (span) => {
     const contactInfo = {
       email: 'admin@company.com',
       phone: '555-123-4567',
@@ -130,7 +130,7 @@ async function example3NestedStructure() {
     },
   };
 
-  await client.traced('process-users', async (span) => {
+  await client.startActiveSpan('process-users', async (span) => {
     span.setAttribute('input.value', nestedData);
   });
 

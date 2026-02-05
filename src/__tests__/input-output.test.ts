@@ -38,7 +38,7 @@ testSuite('Input/Output Functionality', () => {
       const input = { endpoint: '/weather', query: 'Bangalore' };
       const output = { status: 200, data: { temp: 25 } };
 
-      await client.traced('api-request', async (span) => {
+      await client.startActiveSpan('api-request', async (span) => {
         expect(span).toBeDefined();
         return output;
       }, undefined, {
@@ -50,7 +50,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should handle string input/output', async () => {
-      await client.traced('text-operation', async (span) => {
+      await client.startActiveSpan('text-operation', async (span) => {
         expect(span).toBeDefined();
         return 'result';
       }, undefined, {
@@ -60,7 +60,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should handle null input/output', async () => {
-      await client.traced('null-test', async (span) => {
+      await client.startActiveSpan('null-test', async (span) => {
         expect(span).toBeDefined();
         return null;
       }, undefined, {
@@ -70,7 +70,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should handle undefined input/output', async () => {
-      await client.traced('undefined-test', async (span) => {
+      await client.startActiveSpan('undefined-test', async (span) => {
         expect(span).toBeDefined();
         return undefined;
       }, undefined, {
@@ -89,7 +89,7 @@ testSuite('Input/Output Functionality', () => {
         },
       };
 
-      await client.traced('complex-data', async (span) => {
+      await client.startActiveSpan('complex-data', async (span) => {
         expect(span).toBeDefined();
         return complexInput;
       }, undefined, {
@@ -105,7 +105,7 @@ testSuite('Input/Output Functionality', () => {
         { role: 'assistant', content: 'Hi there!' },
       ];
 
-      await client.traced('llm-conversation', async (span) => {
+      await client.startActiveSpan('llm-conversation', async (span) => {
         expect(span).toBeDefined();
         return messages;
       }, undefined, {
@@ -131,7 +131,7 @@ testSuite('Input/Output Functionality', () => {
         },
       ];
 
-      await client.traced('llm-with-tools', async (span) => {
+      await client.startActiveSpan('llm-with-tools', async (span) => {
         expect(span).toBeDefined();
         return null;
       }, undefined, {
@@ -145,7 +145,7 @@ testSuite('Input/Output Functionality', () => {
         { role: 'user', content: 'Hello' },
       ];
 
-      await client.traced('llm-with-system', async (span) => {
+      await client.startActiveSpan('llm-with-system', async (span) => {
         expect(span).toBeDefined();
         return null;
       }, undefined, {
@@ -156,7 +156,7 @@ testSuite('Input/Output Functionality', () => {
 
   describe('Generation Method', () => {
     it('should support generation spans', async () => {
-      await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+      await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
         span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify([
           { role: 'assistant', content: 'Hello!' },
         ]));
@@ -165,8 +165,8 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should inherit input/output from traced method', async () => {
-      // generation() forwards to traced(), so input/output should work
-      await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+      // startActiveGeneration() forwards to startActiveSpan(), so input/output should work
+      await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
         expect(span).toBeDefined();
         return null;
       }, {
@@ -178,7 +178,7 @@ testSuite('Input/Output Functionality', () => {
 
   describe('Mixed Spans', () => {
     it('should handle nested spans with different I/O types', async () => {
-      await client.traced('parent-workflow', async (parentSpan) => {
+      await client.startActiveSpan('parent-workflow', async (parentSpan) => {
         // Parent with generic I/O
         parentSpan.setAttribute(Attrs.OUTPUT_VALUE, JSON.stringify({ status: 'started' }));
 
@@ -192,7 +192,7 @@ testSuite('Input/Output Functionality', () => {
 
   describe('Edge Cases', () => {
     it('should handle empty objects', async () => {
-      await client.traced('empty-test', async (span) => {
+      await client.startActiveSpan('empty-test', async (span) => {
         expect(span).toBeDefined();
         return {};
       }, undefined, {
@@ -202,7 +202,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should handle empty arrays', async () => {
-      await client.traced('empty-array', async (span) => {
+      await client.startActiveSpan('empty-array', async (span) => {
         expect(span).toBeDefined();
         return [];
       }, undefined, {
@@ -212,7 +212,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should handle numbers and booleans', async () => {
-      await client.traced('primitives', async (span) => {
+      await client.startActiveSpan('primitives', async (span) => {
         expect(span).toBeDefined();
         return 42;
       }, undefined, {
@@ -225,7 +225,7 @@ testSuite('Input/Output Functionality', () => {
       // Create ~10KB string
       const largeString = 'x'.repeat(10 * 1024);
 
-      await client.traced('large-payload', async (span) => {
+      await client.startActiveSpan('large-payload', async (span) => {
         expect(span).toBeDefined();
         return 'processed';
       }, undefined, {
@@ -238,7 +238,7 @@ testSuite('Input/Output Functionality', () => {
     it('should handle special characters in strings', async () => {
       const specialStr = 'Hello\nWorld\t"Quoted"\r\n';
 
-      await client.traced('special-chars', async (span) => {
+      await client.startActiveSpan('special-chars', async (span) => {
         expect(span).toBeDefined();
         return specialStr;
       }, undefined, {
@@ -250,7 +250,7 @@ testSuite('Input/Output Functionality', () => {
     it('should handle unicode strings', async () => {
       const unicodeStr = 'Hello 世界 🌍';
 
-      await client.traced('unicode', async (span) => {
+      await client.startActiveSpan('unicode', async (span) => {
         expect(span).toBeDefined();
         return unicodeStr;
       }, undefined, {
@@ -262,7 +262,7 @@ testSuite('Input/Output Functionality', () => {
 
   describe('Version Support', () => {
     it('should support version with input/output', async () => {
-      await client.traced('versioned-trace', async (span) => {
+      await client.startActiveSpan('versioned-trace', async (span) => {
         expect(span).toBeDefined();
         return 'v2 result';
       }, undefined, {
@@ -282,7 +282,7 @@ testSuite('Input/Output Functionality', () => {
 
     it('should accept input/output with various data types without errors', async () => {
       // Generic object input
-      await client.traced('test-object', async (span) => {
+      await client.startActiveSpan('test-object', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {
@@ -291,7 +291,7 @@ testSuite('Input/Output Functionality', () => {
       });
 
       // String input/output
-      await client.traced('test-string', async (span) => {
+      await client.startActiveSpan('test-string', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {
@@ -300,7 +300,7 @@ testSuite('Input/Output Functionality', () => {
       });
 
       // Null values
-      await client.traced('test-null', async (span) => {
+      await client.startActiveSpan('test-null', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {
@@ -309,7 +309,7 @@ testSuite('Input/Output Functionality', () => {
       });
 
       // Number and boolean
-      await client.traced('test-primitives', async (span) => {
+      await client.startActiveSpan('test-primitives', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {
@@ -324,7 +324,7 @@ testSuite('Input/Output Functionality', () => {
         { role: 'assistant', content: 'Hi!' },
       ];
 
-      await client.traced('test-chatml', async (span) => {
+      await client.startActiveSpan('test-chatml', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {
@@ -334,7 +334,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should accept version option without errors', async () => {
-      await client.traced('test-version', async (span) => {
+      await client.startActiveSpan('test-version', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {
@@ -344,7 +344,7 @@ testSuite('Input/Output Functionality', () => {
     });
 
     it('should handle combined options without errors', async () => {
-      await client.traced('test-combined', async (span) => {
+      await client.startActiveSpan('test-combined', async (span) => {
         expect(span).toBeDefined();
         return 'ok';
       }, undefined, {

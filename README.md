@@ -97,7 +97,7 @@ import { getClient, Attrs } from 'brokle';
 
 const client = getClient();
 
-await client.traced('my-operation', async (span) => {
+await client.startActiveSpan('my-operation', async (span) => {
   span.setAttribute(Attrs.USER_ID, 'user-123');
   span.setAttribute('custom-attr', 'value');
 
@@ -114,7 +114,7 @@ import { getClient, Attrs } from 'brokle';
 
 const client = getClient();
 
-const response = await client.generation('chat', 'gpt-4', 'openai', async (span) => {
+const response = await client.startActiveGeneration('chat', 'gpt-4', 'openai', async (span) => {
   const completion = await openai.chat.completions.create({
     model: 'gpt-4',
     messages: [{ role: 'user', content: 'Hello' }],
@@ -276,7 +276,7 @@ const client = getClient({
 });
 
 export const handler = async (event: any) => {
-  await client.traced('lambda-handler', async (span) => {
+  await client.startActiveSpan('lambda-handler', async (span) => {
     span.setAttribute('event.type', event.type);
 
     const result = await processEvent(event);

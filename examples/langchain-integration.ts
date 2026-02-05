@@ -199,7 +199,7 @@ async function combinedWithBrokleClient() {
 
   try {
     // Wrap entire operation in Brokle traced span
-    await brokleClient.traced('user-question', async (parentSpan) => {
+    await brokleClient.startActiveSpan('user-question', async (parentSpan) => {
       // Set custom attributes on parent span
       parentSpan.setAttribute(Attrs.USER_ID, 'user-888');
       parentSpan.setAttribute(Attrs.SESSION_ID, 'session-pqr');
