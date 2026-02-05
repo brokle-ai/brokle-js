@@ -110,10 +110,10 @@ export function observe(options: ObserveOptions = {}) {
 
       if (options.captureInput) {
         try {
-          attrs['input'] = JSON.stringify(args);
+          attrs[Attrs.INPUT_VALUE] = JSON.stringify(args);
         } catch (_error) {
           // Silently ignore serialization errors
-          attrs['input'] = '[unable to serialize]';
+          attrs[Attrs.INPUT_VALUE] = '[unable to serialize]';
         }
       }
 
@@ -123,10 +123,10 @@ export function observe(options: ObserveOptions = {}) {
 
           if (options.captureOutput) {
             try {
-              span.setAttribute('output', JSON.stringify(result));
+              span.setAttribute(Attrs.OUTPUT_VALUE, JSON.stringify(result));
             } catch (_error) {
               // Silently ignore serialization errors
-              span.setAttribute('output', '[unable to serialize]');
+              span.setAttribute(Attrs.OUTPUT_VALUE, '[unable to serialize]');
             }
           }
 
@@ -218,9 +218,9 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
 
     if (options.captureInput) {
       try {
-        attrs['input'] = JSON.stringify(args);
+        attrs[Attrs.INPUT_VALUE] = JSON.stringify(args);
       } catch {
-        attrs['input'] = '[unable to serialize]';
+        attrs[Attrs.INPUT_VALUE] = '[unable to serialize]';
       }
     }
 
@@ -230,9 +230,9 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
 
         if (options.captureOutput) {
           try {
-            span.setAttribute('output', JSON.stringify(result));
+            span.setAttribute(Attrs.OUTPUT_VALUE, JSON.stringify(result));
           } catch {
-            span.setAttribute('output', '[unable to serialize]');
+            span.setAttribute(Attrs.OUTPUT_VALUE, '[unable to serialize]');
           }
         }
 

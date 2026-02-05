@@ -93,7 +93,7 @@ function transformSpan(data: SpanData): QueriedSpan {
  * ```typescript
  * // Query spans with filter
  * const result = await client.query.query({
- *   filter: 'service.name=chatbot AND gen_ai.system=openai',
+ *   filter: 'service.name=chatbot AND gen_ai.provider.name=openai',
  *   startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
  *   limit: 100,
  * });
@@ -179,7 +179,7 @@ export class QueryManager {
    *
    * // Query with time range
    * const result = await client.query.query({
-   *   filter: 'gen_ai.system=openai',
+   *   filter: 'gen_ai.provider.name=openai',
    *   startTime: new Date('2024-01-01'),
    *   endTime: new Date('2024-01-31'),
    * });
@@ -255,7 +255,7 @@ export class QueryManager {
    *
    * // Collect into array
    * const spans: QueriedSpan[] = [];
-   * for await (const span of client.query.queryIter({ filter: 'gen_ai.system=openai' })) {
+   * for await (const span of client.query.queryIter({ filter: 'gen_ai.provider.name=openai' })) {
    *   spans.push(span);
    *   if (spans.length >= 1000) break; // Stop after 1000
    * }
@@ -292,7 +292,7 @@ export class QueryManager {
    *
    * @example
    * ```typescript
-   * const validation = await client.query.validate('service.name=test AND gen_ai.system=openai');
+   * const validation = await client.query.validate('service.name=test AND gen_ai.provider.name=openai');
    * if (validation.valid) {
    *   console.log('Filter is valid');
    * } else {

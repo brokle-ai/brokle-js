@@ -8,6 +8,7 @@
 import {
   getClient,
   Attrs,
+  LLMProvider,
   StreamingAccumulator,
   extractBrokleOptions,
   addPromptAttributes,
@@ -17,8 +18,6 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import type { MistralWrapperOptions, MistralChatAttributes, MistralEmbeddingAttributes } from './types';
 
 export type { BrokleOptions };
-
-const MISTRAL_PROVIDER = 'mistral';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MistralClient = any;
@@ -131,7 +130,7 @@ function tracedChatComplete(originalFn: (...args: any[]) => Promise<any>, brokle
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, MISTRAL_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.MISTRAL);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'chat');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 
@@ -198,7 +197,7 @@ function tracedChatStream(originalFn: (...args: any[]) => Promise<any>, brokleCl
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'generation',
-      [Attrs.GEN_AI_PROVIDER_NAME]: MISTRAL_PROVIDER,
+      [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.MISTRAL,
       [Attrs.GEN_AI_OPERATION_NAME]: 'chat',
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
       [Attrs.BROKLE_STREAMING]: true,
@@ -246,7 +245,7 @@ function tracedEmbeddings(originalFn: (...args: any[]) => Promise<any>, brokleCl
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'embedding');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, MISTRAL_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.MISTRAL);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'embeddings');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 

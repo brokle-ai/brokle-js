@@ -628,14 +628,14 @@ export class Brokle {
    * ```typescript
    * // Query spans with filter expression
    * const result = await client.query.query({
-   *   filter: 'service.name=chatbot AND gen_ai.system=openai',
+   *   filter: 'service.name=chatbot AND gen_ai.provider.name=openai',
    *   startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
    * });
    *
    * console.log(`Found ${result.total} spans`);
    *
    * // Stream with auto-pagination
-   * for await (const span of client.query.queryIter({ filter: 'gen_ai.system=openai' })) {
+   * for await (const span of client.query.queryIter({ filter: 'gen_ai.provider.name=openai' })) {
    *   console.log(span.name, span.output);
    * }
    *

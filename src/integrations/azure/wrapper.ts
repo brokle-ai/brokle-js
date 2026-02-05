@@ -9,6 +9,7 @@ import type { AzureOpenAI } from 'openai';
 import {
   getClient,
   Attrs,
+  LLMProvider,
   StreamingAccumulator,
   extractBrokleOptions,
   addPromptAttributes,
@@ -18,8 +19,6 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import type { AzureOpenAIWrapperOptions, AzureChatCompletionAttributes, AzureMetadata } from './types';
 
 export type { BrokleOptions };
-
-const AZURE_PROVIDER = 'azure_openai';
 
 // Azure-specific attribute keys
 const AZURE_ATTRS = {
@@ -187,7 +186,7 @@ function tracedChatCompletion(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'generation',
-      [Attrs.GEN_AI_PROVIDER_NAME]: AZURE_PROVIDER,
+      [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.AZURE,
       [Attrs.GEN_AI_OPERATION_NAME]: 'chat',
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
     };
@@ -309,7 +308,7 @@ function tracedCompletion(
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, AZURE_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.AZURE);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'text_completion');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 
@@ -369,7 +368,7 @@ function tracedEmbedding(
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'embedding');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, AZURE_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.AZURE);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'embeddings');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 

@@ -21,7 +21,7 @@
  *
  * // Span-based evaluation (THE WEDGE)
  * const queryResult = await client.query.query({
- *   filter: 'service.name=chatbot AND gen_ai.system=openai',
+ *   filter: 'service.name=chatbot AND gen_ai.provider.name=openai',
  * });
  * const spanResults = await client.experiments.run({
  *   name: "retrospective-analysis",

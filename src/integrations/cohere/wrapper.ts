@@ -8,6 +8,7 @@
 import {
   getClient,
   Attrs,
+  LLMProvider,
   StreamingAccumulator,
   extractBrokleOptions,
   addPromptAttributes,
@@ -17,8 +18,6 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import type { CohereWrapperOptions, CohereChatAttributes } from './types';
 
 export type { BrokleOptions };
-
-const COHERE_PROVIDER = 'cohere';
 
 // Cohere-specific attribute keys
 const COHERE_ATTRS = {
@@ -139,7 +138,7 @@ function tracedChat(
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, COHERE_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.COHERE);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'chat');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 
@@ -222,7 +221,7 @@ function tracedChatStream(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const attributes: Record<string, any> = {
       [Attrs.BROKLE_SPAN_TYPE]: 'generation',
-      [Attrs.GEN_AI_PROVIDER_NAME]: COHERE_PROVIDER,
+      [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.COHERE,
       [Attrs.GEN_AI_OPERATION_NAME]: 'chat',
       [Attrs.GEN_AI_REQUEST_MODEL]: model,
       [Attrs.BROKLE_STREAMING]: true,
@@ -275,7 +274,7 @@ function tracedEmbed(
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'embedding');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, COHERE_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.COHERE);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'embeddings');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 
@@ -328,7 +327,7 @@ function tracedRerank(
       const startTime = Date.now();
 
       span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'rerank');
-      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, COHERE_PROVIDER);
+      span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.COHERE);
       span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'rerank');
       span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, model);
 

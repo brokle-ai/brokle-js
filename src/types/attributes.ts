@@ -162,9 +162,11 @@ export enum SpanType {
 export enum LLMProvider {
   OPENAI = 'openai',
   ANTHROPIC = 'anthropic',
-  GOOGLE = 'google',
+  GOOGLE = 'gcp.gemini',
   COHERE = 'cohere',
-  AZURE = 'azure',
+  AZURE = 'azure.ai.openai',
+  BEDROCK = 'aws.bedrock',
+  MISTRAL = 'mistral_ai',
 }
 
 /**

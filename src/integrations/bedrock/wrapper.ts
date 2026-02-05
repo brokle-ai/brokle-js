@@ -8,6 +8,7 @@
 import {
   getClient,
   Attrs,
+  LLMProvider,
   StreamingAccumulator,
   extractBrokleOptions,
   addPromptAttributes,
@@ -17,8 +18,6 @@ import { SpanStatusCode } from '@opentelemetry/api';
 import type { BedrockWrapperOptions, BedrockConverseAttributes } from './types';
 
 export type { BrokleOptions };
-
-const BEDROCK_PROVIDER = 'aws_bedrock';
 
 // Bedrock-specific attribute keys
 const BEDROCK_ATTRS = {
@@ -146,7 +145,7 @@ async function tracedConverse(
     const startTime = Date.now();
 
     span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
-    span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, BEDROCK_PROVIDER);
+    span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.BEDROCK);
     span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'chat');
     span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, modelId);
     span.setAttribute(BEDROCK_ATTRS.MODEL_ID, modelId);
@@ -230,7 +229,7 @@ async function tracedConverseStream(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const attributes: Record<string, any> = {
     [Attrs.BROKLE_SPAN_TYPE]: 'generation',
-    [Attrs.GEN_AI_PROVIDER_NAME]: BEDROCK_PROVIDER,
+    [Attrs.GEN_AI_PROVIDER_NAME]: LLMProvider.BEDROCK,
     [Attrs.GEN_AI_OPERATION_NAME]: 'chat',
     [Attrs.GEN_AI_REQUEST_MODEL]: modelId,
     [BEDROCK_ATTRS.MODEL_ID]: modelId,
@@ -293,7 +292,7 @@ async function tracedInvokeModel(
     const startTime = Date.now();
 
     span.setAttribute(Attrs.BROKLE_SPAN_TYPE, 'generation');
-    span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, BEDROCK_PROVIDER);
+    span.setAttribute(Attrs.GEN_AI_PROVIDER_NAME, LLMProvider.BEDROCK);
     span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'invoke');
     span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, modelId);
     span.setAttribute(BEDROCK_ATTRS.MODEL_ID, modelId);
