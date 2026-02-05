@@ -16,9 +16,9 @@ This is the first public release of the Brokle JavaScript SDK monorepo.
 #### Published Packages
 
 - **brokle** - Core OpenTelemetry-native observability SDK
-- **brokle-openai** - OpenAI SDK wrapper with automatic tracing
-- **brokle-anthropic** - Anthropic SDK wrapper with automatic tracing
-- **brokle-langchain** - LangChain.js integration with automatic tracing
+- **brokle/openai** - OpenAI SDK wrapper with automatic tracing
+- **brokle/anthropic** - Anthropic SDK wrapper with automatic tracing
+- **brokle/langchain** - LangChain.js integration with automatic tracing
 
 #### Features
 
@@ -27,10 +27,10 @@ This is the first public release of the Brokle JavaScript SDK monorepo.
 - **brokle**: Type-safe attribute constants
 - **brokle**: Gzip compression (65% size reduction)
 - **brokle**: Support for serverless + long-running applications
-- **brokle-openai**: Auto-instrumentation for OpenAI SDK v4+
-- **brokle-openai**: Streaming support with real-time span updates
-- **brokle-anthropic**: Auto-instrumentation for Anthropic SDK
-- **brokle-langchain**: LangChain.js callbacks integration
+- **brokle/openai**: Auto-instrumentation for OpenAI SDK v4+
+- **brokle/openai**: Streaming support with real-time span updates
+- **brokle/anthropic**: Auto-instrumentation for Anthropic SDK
+- **brokle/langchain**: LangChain.js callbacks integration
 - **All packages**: TypeScript support with full type definitions
 - **All packages**: Dual format (ESM + CommonJS)
 - **All packages**: Node.js 18+ support
@@ -58,9 +58,9 @@ This is the first public release of the Brokle JavaScript SDK monorepo.
 Changes are organized by package using the following prefixes:
 
 - **brokle**: Core SDK changes
-- **brokle-openai**: OpenAI wrapper changes
-- **brokle-anthropic**: Anthropic wrapper changes
-- **brokle-langchain**: LangChain integration changes
+- **brokle/openai**: OpenAI wrapper changes
+- **brokle/anthropic**: Anthropic wrapper changes
+- **brokle/langchain**: LangChain integration changes
 
 ### Example Future Entry
 
@@ -69,23 +69,19 @@ Changes are organized by package using the following prefixes:
 
 ### Added
 - **brokle**: Added streaming support for real-time trace updates (#123)
-- **brokle-openai**: Added support for function calling traces (#124)
+- **brokle/openai**: Added support for function calling traces (#124)
 
 ### Changed
 - **brokle**: Improved error handling for OTLP export failures (#125)
-- **brokle-anthropic**: Updated to Anthropic SDK v0.18.0 (#126)
+- **brokle/anthropic**: Updated to Anthropic SDK v0.18.0 (#126)
 
 ### Fixed
 - **brokle**: Fixed memory leak in batch span processor (#127)
-- **brokle-langchain**: Fixed callback chain for nested runs (#128)
+- **brokle/langchain**: Fixed callback chain for nested runs (#128)
 
 ### Breaking Changes
 - **brokle**: Renamed `TracerConfig` to `BrokleConfig` for clarity
   - **Migration**: Update import: `import { BrokleConfig } from 'brokle'`
 ```
 
-For detailed package-specific changes, see individual CHANGELOGs:
-- [packages/brokle/CHANGELOG.md](./packages/brokle/CHANGELOG.md)
-- [packages/brokle-openai/CHANGELOG.md](./packages/brokle-openai/CHANGELOG.md)
-- [packages/brokle-anthropic/CHANGELOG.md](./packages/brokle-anthropic/CHANGELOG.md)
-- [packages/brokle-langchain/CHANGELOG.md](./packages/brokle-langchain/CHANGELOG.md)
+For detailed changes, see this changelog and the git history.

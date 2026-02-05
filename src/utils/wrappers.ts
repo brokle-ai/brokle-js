@@ -1,7 +1,7 @@
 /**
  * Shared helper functions for LLM SDK wrappers.
  *
- * These utilities are used by brokle-openai, brokle-anthropic, and other
+ * These utilities are used by brokle/openai, brokle/anthropic, and other
  * wrapper packages to extract brokle options and add prompt attributes.
  */
 

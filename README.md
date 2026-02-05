@@ -325,9 +325,9 @@ span.setAttribute(Attrs.TAGS, JSON.stringify(['production', 'critical']));
 
 For automatic tracing of popular SDKs:
 
-- `brokle-openai` - OpenAI SDK wrapper (Proxy-based, zero code changes)
-- `brokle-anthropic` - Anthropic SDK wrapper
-- `brokle-langchain` - LangChain.js callbacks
+- `brokle/openai` - OpenAI SDK wrapper (Proxy-based, zero code changes)
+- `brokle/anthropic` - Anthropic SDK wrapper
+- `brokle/langchain` - LangChain.js callbacks
 
 ## Examples
 

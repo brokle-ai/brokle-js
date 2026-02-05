@@ -21,7 +21,7 @@ export type IntegrationStatus = 'registered' | 'active' | 'disabled' | 'error';
  * Integration metadata
  */
 export interface IntegrationMetadata {
-  /** Integration name (e.g., "brokle-openai") */
+  /** Integration name (e.g., "brokle/openai") */
   name: string;
   /** Semantic version */
   version: string;

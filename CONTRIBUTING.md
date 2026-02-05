@@ -248,9 +248,9 @@ To release a new version of the JavaScript SDK:
    - Builds all 4 packages
    - Publishes to npm:
      - brokle
-     - brokle-openai
-     - brokle-anthropic
-     - brokle-langchain
+     - brokle/openai
+     - brokle/anthropic
+     - brokle/langchain
 
 **Note**: Publishing to npm happens automatically when you publish the GitHub Release. No manual `npm publish` needed!
 

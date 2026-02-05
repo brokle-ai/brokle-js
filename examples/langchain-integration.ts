@@ -9,7 +9,7 @@ import { PromptTemplate } from 'langchain/prompts';
 import { LLMChain } from 'langchain/chains';
 import { Calculator } from 'langchain/tools/calculator';
 import { initializeAgentExecutorWithOptions } from 'langchain/agents';
-import { BrokleLangChainCallback } from 'brokle-langchain';
+import { BrokleLangChainCallback } from 'brokle/langchain';
 import { getClient, Attrs } from 'brokle';
 
 // ========== Initialize Brokle ==========

@@ -14,8 +14,8 @@
  *
  * @example
  * ```typescript
- * import { Brokle } from '@brokle/sdk';
- * import { MaskingHelper } from '@brokle/sdk/utils/masking';
+ * import { Brokle } from 'brokle';
+ * import { MaskingHelper } from 'brokle/utils/masking';
  *
  * // Use pre-built PII masker
  * const client = new Brokle({

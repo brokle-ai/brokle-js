@@ -7,8 +7,8 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { getClient, Attrs } from 'brokle';
-import { wrapOpenAI } from 'brokle-openai';
-import { wrapAnthropic } from 'brokle-anthropic';
+import { wrapOpenAI } from 'brokle/openai';
+import { wrapAnthropic } from 'brokle/anthropic';
 
 // ========== Initialize Brokle Client ==========
 
