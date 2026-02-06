@@ -7,7 +7,7 @@
  */
 
 import { trace } from '@opentelemetry/api';
-import { getClient, Attrs } from '../../index';
+import { resolveClient, Attrs } from '../../index';
 import type {
   BrokleTelemetryConfig,
   ExperimentalTelemetry,
@@ -51,7 +51,7 @@ import {
  * ```
  */
 export function getBrokleTelemetry(config?: BrokleTelemetryConfig): ExperimentalTelemetry {
-  const brokleClient = getClient();
+  const brokleClient = resolveClient();
 
   if (!brokleClient.getConfig().enabled) {
     return { isEnabled: false };
@@ -294,7 +294,7 @@ function wrapStreamingResult(result: any, _functionName: string): any {
  * ```
  */
 export function wrapAI<T extends AIFunctions>(aiFunctions: T): WrappedAIFunctions<T> {
-  const brokleClient = getClient();
+  const brokleClient = resolveClient();
 
   // If Brokle is disabled, return original functions
   if (!brokleClient.getConfig().enabled) {
@@ -399,7 +399,7 @@ export function wrapAIFunction<TFn extends (...args: unknown[]) => Promise<unkno
   fn: TFn,
   defaultConfig?: BrokleTelemetryConfig
 ): TFn {
-  const brokleClient = getClient();
+  const brokleClient = resolveClient();
 
   if (!brokleClient.getConfig().enabled) {
     return fn;

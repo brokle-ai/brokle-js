@@ -8,7 +8,7 @@
 import { BaseCallbackHandler } from '@langchain/core/callbacks/base';
 import type { Serialized } from '@langchain/core/load/serializable';
 import type { LLMResult } from '@langchain/core/outputs';
-import { getClient, Attrs, LLMProvider } from '../../index';
+import { resolveClient, Attrs, LLMProvider } from '../../index';
 import type { Span, Tracer, Context } from '@opentelemetry/api';
 import { SpanStatusCode, trace, context } from '@opentelemetry/api';
 
@@ -73,7 +73,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
     super();
 
     this.config = config;
-    const client = getClient();
+    const client = resolveClient();
     this.tracer = client.getTracer();
     this.spans = new Map();
 
@@ -493,7 +493,7 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
    * Call this before process exit or at the end of serverless functions
    */
   async flush(): Promise<void> {
-    const client = getClient();
+    const client = resolveClient();
     await client.flush();
 
     if (this.config.debug) {

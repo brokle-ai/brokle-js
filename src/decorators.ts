@@ -5,7 +5,7 @@
  */
 
 import { SpanStatusCode } from '@opentelemetry/api';
-import { getClient } from './client';
+import { resolveClient } from './client';
 import { Attrs } from './types/attributes';
 import type { Prompt } from './prompt';
 
@@ -69,7 +69,7 @@ export function observe(options: ObserveOptions = {}) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     descriptor.value = async function (this: any, ...args: any[]) {
-      const client = getClient();
+      const client = resolveClient();
 
       if (!client.getConfig().enabled) {
         return await originalMethod.apply(this, args);
@@ -178,7 +178,7 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
 ): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (async (...args: any[]) => {
-    const client = getClient();
+    const client = resolveClient();
 
     if (!client.getConfig().enabled) {
       return await fn(...args);

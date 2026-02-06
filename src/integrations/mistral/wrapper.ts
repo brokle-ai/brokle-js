@@ -6,7 +6,7 @@
  */
 
 import {
-  getClient,
+  resolveClient,
   Attrs,
   LLMProvider,
   StreamingAccumulator,
@@ -64,17 +64,11 @@ export function wrapMistral<T extends MistralClient>(
     );
   }
 
-  const brokleClient = getClient();
-
-  if (!brokleClient.getConfig().enabled) {
-    return client;
-  }
-
-  return createProxy(client, brokleClient, [], options);
+  return createProxy(client, [], options);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createProxy(target: any, brokleClient: any, path: string[], options?: MistralWrapperOptions): any {
+function createProxy(target: any, path: string[], options?: MistralWrapperOptions): any {
   return new Proxy(target, {
     get(obj, prop: string | symbol) {
       if (typeof prop === 'symbol') {
@@ -88,22 +82,22 @@ function createProxy(target: any, brokleClient: any, path: string[], options?: M
         const pathStr = currentPath.join('.');
 
         if (pathStr === 'chat.complete') {
-          return tracedChatComplete(value.bind(obj), brokleClient, options);
+          return tracedChatComplete(value.bind(obj), options);
         }
 
         if (pathStr === 'chat.stream') {
-          return tracedChatStream(value.bind(obj), brokleClient, options);
+          return tracedChatStream(value.bind(obj), options);
         }
 
         if (pathStr === 'embeddings.create') {
-          return tracedEmbeddings(value.bind(obj), brokleClient, options);
+          return tracedEmbeddings(value.bind(obj), options);
         }
 
         return value.bind(obj);
       }
 
       if (value !== null && typeof value === 'object') {
-        return createProxy(value, brokleClient, currentPath, options);
+        return createProxy(value, currentPath, options);
       }
 
       return value;
@@ -115,9 +109,14 @@ function createProxy(target: any, brokleClient: any, path: string[], options?: M
  * Traced chat.complete
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedChatComplete(originalFn: (...args: any[]) => Promise<any>, brokleClient: any, _options?: MistralWrapperOptions) {
+function tracedChatComplete(originalFn: (...args: any[]) => Promise<any>, _options?: MistralWrapperOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: unknown, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
+
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';
@@ -183,9 +182,14 @@ function tracedChatComplete(originalFn: (...args: any[]) => Promise<any>, brokle
  * Traced chat.stream
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedChatStream(originalFn: (...args: any[]) => Promise<any>, brokleClient: any, _options?: MistralWrapperOptions) {
+function tracedChatStream(originalFn: (...args: any[]) => Promise<any>, _options?: MistralWrapperOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: unknown, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
+
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';
@@ -230,9 +234,14 @@ function tracedChatStream(originalFn: (...args: any[]) => Promise<any>, brokleCl
  * Traced embeddings.create
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedEmbeddings(originalFn: (...args: any[]) => Promise<any>, brokleClient: any, _options?: MistralWrapperOptions) {
+function tracedEmbeddings(originalFn: (...args: any[]) => Promise<any>, _options?: MistralWrapperOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: unknown, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
+
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';

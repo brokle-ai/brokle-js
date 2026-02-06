@@ -7,7 +7,7 @@
 
 import type OpenAI from 'openai';
 import {
-  getClient,
+  resolveClient,
   Attrs,
   LLMProvider,
   StreamingAccumulator,
@@ -64,17 +64,11 @@ export function wrapOpenAI<T extends OpenAI>(client: T): T {
     );
   }
 
-  const brokleClient = getClient();
-
-  if (!brokleClient.getConfig().enabled) {
-    return client;
-  }
-
-  return createProxy(client, brokleClient, []);
+  return createProxy(client, []);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createProxy(target: any, brokleClient: any, path: string[]): any {
+function createProxy(target: any, path: string[]): any {
   return new Proxy(target, {
     get(obj, prop: string | symbol) {
       if (typeof prop === 'symbol') {
@@ -88,22 +82,22 @@ function createProxy(target: any, brokleClient: any, path: string[]): any {
         const pathStr = currentPath.join('.');
 
         if (pathStr === 'chat.completions.create') {
-          return tracedChatCompletion(value.bind(obj), brokleClient);
+          return tracedChatCompletion(value.bind(obj));
         }
 
         if (pathStr === 'completions.create') {
-          return tracedCompletion(value.bind(obj), brokleClient);
+          return tracedCompletion(value.bind(obj));
         }
 
         if (pathStr === 'embeddings.create') {
-          return tracedEmbedding(value.bind(obj), brokleClient);
+          return tracedEmbedding(value.bind(obj));
         }
 
         return value.bind(obj);
       }
 
       if (value !== null && typeof value === 'object') {
-        return createProxy(value, brokleClient, currentPath);
+        return createProxy(value, currentPath);
       }
 
       return value;
@@ -116,13 +110,13 @@ function createProxy(target: any, brokleClient: any, path: string[]): any {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleStreamingResponse(
-  brokleClient: any,
   originalFn: (...args: any[]) => Promise<AsyncIterable<any>>,
   context: any,
   args: any[],
   spanName: string,
   attributes: Record<string, any>
 ): Promise<AsyncIterable<any>> {
+  const brokleClient = resolveClient();
   const tracer = brokleClient.getTracer();
   const span = tracer.startSpan(spanName, { attributes });
 
@@ -190,9 +184,13 @@ async function* wrapAsyncIterable(
  * Wraps chat completion API call with tracing
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';
@@ -244,7 +242,6 @@ function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brok
 
     if (isStreaming) {
       return handleStreamingResponse(
-        brokleClient,
         originalFn,
         this,
         cleanArgs,
@@ -299,9 +296,13 @@ function tracedChatCompletion(originalFn: (...args: any[]) => Promise<any>, brok
  * Wraps text completion API call with tracing
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedCompletion(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+function tracedCompletion(originalFn: (...args: any[]) => Promise<any>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';
@@ -371,9 +372,13 @@ function tracedCompletion(originalFn: (...args: any[]) => Promise<any>, brokleCl
  * Wraps embeddings API call with tracing
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedEmbedding(originalFn: (...args: any[]) => Promise<any>, brokleClient: any) {
+function tracedEmbedding(originalFn: (...args: any[]) => Promise<any>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';

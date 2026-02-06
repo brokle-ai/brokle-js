@@ -5,7 +5,7 @@
  */
 
 // Core client
-export { Brokle, getClient, resetClient } from './client';
+export { Brokle, getClient, setClient, resetClient, resolveClient, withBrokleClient } from './client';
 
 // Version
 export { SDK_VERSION, SDK_NAME } from './version';

@@ -7,7 +7,7 @@
 
 import type { AzureOpenAI } from 'openai';
 import {
-  getClient,
+  resolveClient,
   Attrs,
   LLMProvider,
   StreamingAccumulator,
@@ -72,16 +72,10 @@ export function wrapAzureOpenAI<T extends AzureOpenAI>(
     );
   }
 
-  const brokleClient = getClient();
-
-  if (!brokleClient.getConfig().enabled) {
-    return client;
-  }
-
-  // Extract Azure metadata from client
+  // Extract Azure metadata from client at wrap-time
   const azureMetadata = extractAzureMetadata(client);
 
-  return createProxy(client, brokleClient, [], azureMetadata, options);
+  return createProxy(client, [], azureMetadata, options);
 }
 
 /**
@@ -113,7 +107,7 @@ function extractAzureMetadata(client: any): AzureMetadata {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createProxy(target: any, brokleClient: any, path: string[], azureMetadata: AzureMetadata, options?: AzureOpenAIWrapperOptions): any {
+function createProxy(target: any, path: string[], azureMetadata: AzureMetadata, options?: AzureOpenAIWrapperOptions): any {
   return new Proxy(target, {
     get(obj, prop: string | symbol) {
       if (typeof prop === 'symbol') {
@@ -127,22 +121,22 @@ function createProxy(target: any, brokleClient: any, path: string[], azureMetada
         const pathStr = currentPath.join('.');
 
         if (pathStr === 'chat.completions.create') {
-          return tracedChatCompletion(value.bind(obj), brokleClient, azureMetadata, options);
+          return tracedChatCompletion(value.bind(obj), azureMetadata, options);
         }
 
         if (pathStr === 'completions.create') {
-          return tracedCompletion(value.bind(obj), brokleClient, azureMetadata, options);
+          return tracedCompletion(value.bind(obj), azureMetadata, options);
         }
 
         if (pathStr === 'embeddings.create') {
-          return tracedEmbedding(value.bind(obj), brokleClient, azureMetadata, options);
+          return tracedEmbedding(value.bind(obj), azureMetadata, options);
         }
 
         return value.bind(obj);
       }
 
       if (value !== null && typeof value === 'object') {
-        return createProxy(value, brokleClient, currentPath, azureMetadata, options);
+        return createProxy(value, currentPath, azureMetadata, options);
       }
 
       return value;
@@ -172,12 +166,16 @@ function addAzureMetadata(span: any, metadata: AzureMetadata, deploymentName?: s
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedChatCompletion(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   azureMetadata: AzureMetadata,
   _options?: AzureOpenAIWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
+
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';
@@ -206,7 +204,7 @@ function tracedChatCompletion(
     const isStreaming = cleanParams.stream === true;
     if (isStreaming) {
       attributes[Attrs.BROKLE_STREAMING] = true;
-      return handleStreamingResponse(brokleClient, originalFn, args, cleanParams, spanName, attributes, azureMetadata, model);
+      return handleStreamingResponse(originalFn, args, cleanParams, spanName, attributes, azureMetadata, model);
     }
 
     const cleanArgs = [cleanParams, ...args.slice(1)];
@@ -255,7 +253,6 @@ function tracedChatCompletion(
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleStreamingResponse(
-  brokleClient: any,
   originalFn: (...args: any[]) => Promise<any>,
   args: any[],
   cleanParams: any,
@@ -264,6 +261,7 @@ async function handleStreamingResponse(
   azureMetadata: AzureMetadata,
   deploymentName: string
 ): Promise<AsyncIterable<any>> {
+  const brokleClient = resolveClient();
   const tracer = brokleClient.getTracer();
   const span = tracer.startSpan(spanName, { attributes });
 
@@ -290,12 +288,16 @@ async function handleStreamingResponse(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedCompletion(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   azureMetadata: AzureMetadata,
   _options?: AzureOpenAIWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
+
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';
@@ -350,12 +352,16 @@ function tracedCompletion(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedEmbedding(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   azureMetadata: AzureMetadata,
   _options?: AzureOpenAIWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
+
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'unknown';

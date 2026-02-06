@@ -29,6 +29,7 @@ import { ExperimentsManager } from './experiments';
 import { QueryManager } from './query';
 import { AnnotationsManager } from './annotations';
 import { SDK_VERSION, SDK_NAME } from './version';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
  * Main Brokle client class
@@ -73,6 +74,9 @@ export class Brokle {
       }
       // Use global no-op tracer (doesn't create any resources)
       this.tracer = trace.getTracer('brokle-disabled');
+      // Auto-register (first-write-wins)
+      const state = getGlobalState();
+      if (!state.client) { state.client = this; }
       return;
     }
 
@@ -165,6 +169,13 @@ export class Brokle {
 
     if (this.config.debug) {
       console.log('[Brokle] SDK initialized successfully');
+    }
+
+    // Auto-register as global singleton (first-write-wins)
+    const state = getGlobalState();
+    if (!state.client) {
+      state.client = this;
+      state.provider = this.provider;
     }
   }
 
@@ -741,6 +752,13 @@ export class Brokle {
    * ```
    */
   async shutdown(): Promise<void> {
+    // Clear global registration if this is the registered client
+    const state = getGlobalState();
+    if (state.client === this) {
+      state.client = null;
+      state.provider = null;
+    }
+
     if (!this.config.enabled || !this.provider) {
       return;
     }
@@ -929,6 +947,13 @@ export class Brokle {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (instance as any).genAIMetrics = genAIMetrics;
 
+    // Auto-register as global singleton (first-write-wins)
+    const asyncState = getGlobalState();
+    if (!asyncState.client) {
+      asyncState.client = instance;
+      asyncState.provider = provider;
+    }
+
     return instance;
   }
 }
@@ -1012,6 +1037,90 @@ export async function resetClient(): Promise<void> {
     state.client = null;
     state.provider = null;
   }
+}
+
+/**
+ * Explicitly set the global singleton client
+ *
+ * Overwrites any previously registered client (unlike constructor which is first-write-wins).
+ *
+ * @param client - Brokle client instance to set as global
+ *
+ * @example
+ * ```typescript
+ * const client = new Brokle({ apiKey: 'bk_...' });
+ * setClient(client); // Force this as the global client
+ * ```
+ */
+export function setClient(client: Brokle): void {
+  const state = getGlobalState();
+  state.client = client;
+  state.provider = client.getConfig().enabled ? client.getProvider() : null;
+}
+
+// AsyncLocalStorage for context scoping
+const BROKLE_CONTEXT_SYMBOL = Symbol.for('brokle:context');
+
+function getContextStorage(): AsyncLocalStorage<Brokle> {
+  const g = globalThis as typeof globalThis & {
+    [BROKLE_CONTEXT_SYMBOL]?: AsyncLocalStorage<Brokle>;
+  };
+
+  if (!g[BROKLE_CONTEXT_SYMBOL]) {
+    Object.defineProperty(g, BROKLE_CONTEXT_SYMBOL, {
+      value: new AsyncLocalStorage<Brokle>(),
+      writable: false,
+      configurable: false,
+      enumerable: false,
+    });
+  }
+
+  return g[BROKLE_CONTEXT_SYMBOL]!;
+}
+
+/**
+ * Run a function with a scoped Brokle client override.
+ *
+ * All calls to `resolveClient()` and `getClient()` within the function
+ * will return the scoped client instead of the global singleton.
+ * Useful for multi-tenant or per-request client overrides.
+ *
+ * @param client - Brokle client to use within the scope
+ * @param fn - Function to execute with the scoped client
+ * @returns Result of the function
+ *
+ * @example
+ * ```typescript
+ * const tenantClient = new Brokle({ apiKey: 'bk_tenant_key' });
+ * await withBrokleClient(tenantClient, async () => {
+ *   const wrapped = wrapOpenAI(new OpenAI());
+ *   // All tracing goes to tenantClient
+ *   await wrapped.chat.completions.create({ ... });
+ * });
+ * ```
+ */
+export async function withBrokleClient<T>(
+  client: Brokle,
+  fn: () => T | Promise<T>,
+): Promise<T> {
+  const als = getContextStorage();
+  return await als.run(client, fn);
+}
+
+/**
+ * Resolve the current Brokle client using the priority chain:
+ * 1. Explicit client parameter (if provided)
+ * 2. Context-scoped client (from withBrokleClient)
+ * 3. Global singleton (from constructor auto-registration or getClient)
+ *
+ * @param explicit - Optional explicit client override
+ * @returns Resolved Brokle client
+ */
+export function resolveClient(explicit?: Brokle): Brokle {
+  if (explicit) return explicit;
+  const scoped = getContextStorage().getStore();
+  if (scoped) return scoped;
+  return getClient();
 }
 
 /**

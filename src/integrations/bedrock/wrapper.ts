@@ -6,7 +6,7 @@
  */
 
 import {
-  getClient,
+  resolveClient,
   Attrs,
   LLMProvider,
   StreamingAccumulator,
@@ -71,12 +71,6 @@ export function wrapBedrock<T extends BedrockClient>(
     );
   }
 
-  const brokleClient = getClient();
-
-  if (!brokleClient.getConfig().enabled) {
-    return client;
-  }
-
   return new Proxy(client, {
     get(target, prop: string | symbol) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,7 +82,7 @@ export function wrapBedrock<T extends BedrockClient>(
       const value = t[prop];
 
       if (prop === 'send' && typeof value === 'function') {
-        return tracedSend(value.bind(target), brokleClient, options);
+        return tracedSend(value.bind(target), options);
       }
 
       return typeof value === 'function' ? value.bind(target) : value;
@@ -100,23 +94,28 @@ export function wrapBedrock<T extends BedrockClient>(
  * Traced send method
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function tracedSend(originalFn: (...args: any[]) => Promise<any>, brokleClient: any, options?: BedrockWrapperOptions) {
+function tracedSend(originalFn: (...args: any[]) => Promise<any>, options?: BedrockWrapperOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return originalFn(...args);
+    }
+
     const command = args[0];
     const commandName = command?.constructor?.name || 'UnknownCommand';
 
     // Only trace Converse and ConverseStream commands
     if (commandName === 'ConverseCommand') {
-      return tracedConverse(originalFn, brokleClient, command, args, options);
+      return tracedConverse(originalFn, command, args, options);
     }
 
     if (commandName === 'ConverseStreamCommand') {
-      return tracedConverseStream(originalFn, brokleClient, command, args, options);
+      return tracedConverseStream(originalFn, command, args, options);
     }
 
     if (commandName === 'InvokeModelCommand') {
-      return tracedInvokeModel(originalFn, brokleClient, command, args, options);
+      return tracedInvokeModel(originalFn, command, args, options);
     }
 
     // Pass through other commands
@@ -130,11 +129,11 @@ function tracedSend(originalFn: (...args: any[]) => Promise<any>, brokleClient: 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function tracedConverse(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   command: any,
   args: any[],
   _options?: BedrockWrapperOptions
 ) {
+  const brokleClient = resolveClient();
   const input = command.input || {};
   const { cleanParams, brokleOpts } = extractBrokleOptions(input);
   const modelId = cleanParams.modelId || 'unknown';
@@ -215,11 +214,11 @@ async function tracedConverse(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function tracedConverseStream(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   command: any,
   args: any[],
   _options?: BedrockWrapperOptions
 ) {
+  const brokleClient = resolveClient();
   const input = command.input || {};
   const { cleanParams, brokleOpts } = extractBrokleOptions(input);
   const modelId = cleanParams.modelId || 'unknown';
@@ -278,11 +277,11 @@ async function tracedConverseStream(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function tracedInvokeModel(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   command: any,
   args: any[],
   _options?: BedrockWrapperOptions
 ) {
+  const brokleClient = resolveClient();
   const input = command.input || {};
   const modelId = input.modelId || 'unknown';
   const spanName = `invoke ${modelId}`;

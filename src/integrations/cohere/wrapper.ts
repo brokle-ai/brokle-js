@@ -6,7 +6,7 @@
  */
 
 import {
-  getClient,
+  resolveClient,
   Attrs,
   LLMProvider,
   StreamingAccumulator,
@@ -74,12 +74,6 @@ export function wrapCohere<T extends CohereClient>(
     );
   }
 
-  const brokleClient = getClient();
-
-  if (!brokleClient.getConfig().enabled) {
-    return client;
-  }
-
   return new Proxy(client, {
     get(target, prop: string | symbol) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,19 +86,19 @@ export function wrapCohere<T extends CohereClient>(
 
       if (typeof value === 'function') {
         if (prop === 'chat') {
-          return tracedChat(value.bind(target), brokleClient, options);
+          return tracedChat(value.bind(target), options);
         }
 
         if (prop === 'chatStream') {
-          return tracedChatStream(value.bind(target), brokleClient, options);
+          return tracedChatStream(value.bind(target), options);
         }
 
         if (prop === 'embed') {
-          return tracedEmbed(value.bind(target), brokleClient, options);
+          return tracedEmbed(value.bind(target), options);
         }
 
         if (prop === 'rerank') {
-          return tracedRerank(value.bind(target), brokleClient, options);
+          return tracedRerank(value.bind(target), options);
         }
 
         return value.bind(target);
@@ -121,11 +115,14 @@ export function wrapCohere<T extends CohereClient>(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedChat(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   _options?: CohereWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'command-r-plus';
@@ -207,11 +204,14 @@ function tracedChat(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedChatStream(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   _options?: CohereWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'command-r-plus';
@@ -257,11 +257,14 @@ function tracedChatStream(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedEmbed(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   _options?: CohereWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'embed-english-v3.0';
@@ -310,11 +313,14 @@ function tracedEmbed(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedRerank(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   _options?: CohereWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return async function (...args: any[]) {
+  return async function (this: any, ...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn.apply(this, args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const model = cleanParams.model || 'rerank-english-v3.0';

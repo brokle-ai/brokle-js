@@ -9,7 +9,7 @@
  */
 
 import {
-  getClient,
+  resolveClient,
   Attrs,
   LLMProvider,
   StreamingAccumulator,
@@ -68,12 +68,6 @@ export function wrapGoogleGenAI<T extends GoogleGenAI>(
     );
   }
 
-  const brokleClient = getClient();
-
-  if (!brokleClient.getConfig().enabled) {
-    return client;
-  }
-
   return new Proxy(client, {
     get(target, prop: string | symbol) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,7 +80,7 @@ export function wrapGoogleGenAI<T extends GoogleGenAI>(
 
       // Wrap the models namespace
       if (prop === 'models' && value && typeof value === 'object') {
-        return wrapModelsNamespace(value, brokleClient, options);
+        return wrapModelsNamespace(value, options);
       }
 
       return value;
@@ -98,7 +92,7 @@ export function wrapGoogleGenAI<T extends GoogleGenAI>(
  * Wraps the models namespace with tracing
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function wrapModelsNamespace(models: any, brokleClient: any, options?: GoogleGenAIWrapperOptions): any {
+function wrapModelsNamespace(models: any, options?: GoogleGenAIWrapperOptions): any {
   return new Proxy(models, {
     get(target, prop: string | symbol) {
       if (typeof prop === 'symbol') {
@@ -108,15 +102,15 @@ function wrapModelsNamespace(models: any, brokleClient: any, options?: GoogleGen
       const value = target[prop];
 
       if (prop === 'generateContent' && typeof value === 'function') {
-        return tracedGenerateContent(value.bind(target), brokleClient, options);
+        return tracedGenerateContent(value.bind(target), options);
       }
 
       if (prop === 'generateContentStream' && typeof value === 'function') {
-        return tracedGenerateContentStream(value.bind(target), brokleClient, options);
+        return tracedGenerateContentStream(value.bind(target), options);
       }
 
       if (prop === 'embedContent' && typeof value === 'function') {
-        return tracedEmbedContent(value.bind(target), brokleClient, options);
+        return tracedEmbedContent(value.bind(target), options);
       }
 
       return typeof value === 'function' ? value.bind(target) : value;
@@ -130,11 +124,14 @@ function wrapModelsNamespace(models: any, brokleClient: any, options?: GoogleGen
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedGenerateContent(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   options?: GoogleGenAIWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn(...args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const modelName = cleanParams?.model || 'gemini';
@@ -199,11 +196,14 @@ function tracedGenerateContent(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedGenerateContentStream(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   _options?: GoogleGenAIWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn(...args);
+    }
     const rawParams = args[0];
     const { cleanParams, brokleOpts } = extractBrokleOptions(rawParams);
     const modelName = cleanParams?.model || 'gemini';
@@ -252,11 +252,14 @@ function tracedGenerateContentStream(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function tracedEmbedContent(
   originalFn: (...args: any[]) => Promise<any>,
-  brokleClient: any,
   _options?: GoogleGenAIWrapperOptions
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return async function (...args: any[]) {
+    const brokleClient = resolveClient();
+    if (!brokleClient.getConfig().enabled) {
+      return await originalFn(...args);
+    }
     const params = args[0];
     const modelName = params?.model || 'embedding';
     const spanName = `embedding ${modelName}`;
