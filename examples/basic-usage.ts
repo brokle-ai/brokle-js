@@ -184,7 +184,7 @@ async function customMetadata() {
     span.setAttribute(Attrs.SESSION_ID, 'session-xyz');
 
     // Set tags
-    span.setAttribute(Attrs.TAGS, JSON.stringify(['production', 'critical', 'ai']));
+    span.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(['production', 'critical', 'ai']));
 
     // Set custom metadata
     const metadata = {
@@ -192,7 +192,7 @@ async function customMetadata() {
       region: 'us-east-1',
       version: '1.2.3',
     };
-    span.setAttribute(Attrs.METADATA, JSON.stringify(metadata));
+    span.setAttribute(Attrs.BROKLE_TRACE_METADATA, JSON.stringify(metadata));
 
     await new Promise((resolve) => setTimeout(resolve, 50));
   });

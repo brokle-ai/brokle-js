@@ -46,6 +46,7 @@ export type {
   DatasetConfig,
   CreateDatasetOptions,
   GetItemsOptions,
+  GetVersionItemsOptions,
   ListDatasetsOptions,
   APIResponse,
   KeysMapping,

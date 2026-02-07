@@ -85,6 +85,13 @@ export interface GetItemsOptions {
   page?: number;
 }
 
+export interface GetVersionItemsOptions {
+  /** Maximum items to return (default: 50, valid: 10, 25, 50, 100) */
+  limit?: number;
+  /** Offset for pagination (default: 0, 0-indexed) */
+  offset?: number;
+}
+
 export interface ListDatasetsOptions {
   /** Maximum datasets to return (default: 50, valid: 10, 25, 50, 100) */
   limit?: number;

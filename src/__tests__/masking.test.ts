@@ -61,7 +61,6 @@ const createConfig = (overrides: Partial<BrokleConfig> = {}): BrokleConfig => ({
   metricsEnabled: true,
   logsEnabled: false,
   release: '',
-  version: '',
   sampleRate: 1.0,
   flushAt: 100,
   flushInterval: 10,
@@ -132,7 +131,7 @@ describe('Core Masking', () => {
     const processor = new BrokleSpanProcessor(exporter, config);
 
     const span = createMockSpan({
-      [Attrs.METADATA]: {
+      [Attrs.BROKLE_TRACE_METADATA]: {
         user: { email: 'john@example.com', name: 'John' },
         admin: { email: 'admin@example.com' },
       },
@@ -140,7 +139,7 @@ describe('Core Masking', () => {
 
     await processor.onEnd(span);
 
-    const result = span.attributes[Attrs.METADATA] as Record<string, any>;
+    const result = span.attributes[Attrs.BROKLE_TRACE_METADATA] as Record<string, any>;
     expect(result.user.email).toBe('john@[MASKED]');
     expect(result.admin.email).toBe('admin@[MASKED]');
     expect(result.user.name).toBe('John'); // Unchanged
@@ -195,12 +194,12 @@ describe('Core Masking', () => {
     };
 
     const span = createMockSpan({
-      [Attrs.METADATA]: complexStructure,
+      [Attrs.BROKLE_TRACE_METADATA]: complexStructure,
     });
 
     await processor.onEnd(span);
 
-    const result = span.attributes[Attrs.METADATA] as Record<string, any>;
+    const result = span.attributes[Attrs.BROKLE_TRACE_METADATA] as Record<string, any>;
     // Structure preserved, strings uppercased
     expect(result.nested.deep).toEqual(['VALUE1', 'VALUE2']);
     expect(result.nested.count).toBe(42); // Non-string unchanged
@@ -217,7 +216,8 @@ describe('Core Masking', () => {
       [Attrs.INPUT_VALUE]: 'input',
       [Attrs.OUTPUT_VALUE]: 'output',
       [Attrs.GEN_AI_INPUT_MESSAGES]: 'messages',
-      [Attrs.METADATA]: 'metadata',
+      [Attrs.BROKLE_TRACE_METADATA]: 'metadata',
+      [Attrs.BROKLE_STATUS_MESSAGE]: 'Error: user john@example.com not found',
       // Non-maskable
       [Attrs.GEN_AI_REQUEST_MODEL]: 'gpt-4',
       [Attrs.SESSION_ID]: 'session-123',
@@ -230,7 +230,8 @@ describe('Core Masking', () => {
     expect(span.attributes[Attrs.INPUT_VALUE]).toBe('MASKED');
     expect(span.attributes[Attrs.OUTPUT_VALUE]).toBe('MASKED');
     expect(span.attributes[Attrs.GEN_AI_INPUT_MESSAGES]).toBe('MASKED');
-    expect(span.attributes[Attrs.METADATA]).toBe('MASKED');
+    expect(span.attributes[Attrs.BROKLE_TRACE_METADATA]).toBe('MASKED');
+    expect(span.attributes[Attrs.BROKLE_STATUS_MESSAGE]).toBe('MASKED');
 
     // Non-maskable attributes unchanged
     expect(span.attributes[Attrs.GEN_AI_REQUEST_MODEL]).toBe('gpt-4');
@@ -320,7 +321,7 @@ describe('Error Handling', () => {
 
     const span = createMockSpan({
       [Attrs.INPUT_VALUE]: 'This is sensitive',
-      [Attrs.METADATA]: { key: 'value' }, // Will fail
+      [Attrs.BROKLE_TRACE_METADATA]: { key: 'value' }, // Will fail
     });
 
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -330,7 +331,7 @@ describe('Error Handling', () => {
     // String successfully masked
     expect(span.attributes[Attrs.INPUT_VALUE]).toBe('This is ***');
     // Object masked with fallback
-    expect(span.attributes[Attrs.METADATA]).toBe(
+    expect(span.attributes[Attrs.BROKLE_TRACE_METADATA]).toBe(
       '<fully masked due to failed mask function>'
     );
 
@@ -455,7 +456,7 @@ describe('Real PII Patterns', () => {
     const processor = new BrokleSpanProcessor(exporter, config);
 
     const span = createMockSpan({
-      [Attrs.METADATA]: {
+      [Attrs.BROKLE_TRACE_METADATA]: {
         user: 'john',
         password: 'secret123',
         ssn: '123-45-6789',
@@ -465,7 +466,7 @@ describe('Real PII Patterns', () => {
 
     await processor.onEnd(span);
 
-    const result = span.attributes[Attrs.METADATA] as Record<string, any>;
+    const result = span.attributes[Attrs.BROKLE_TRACE_METADATA] as Record<string, any>;
     expect(result.user).toBe('john');
     expect(result.password).toBe('***MASKED***');
     expect(result.ssn).toBe('***MASKED***');
@@ -530,7 +531,7 @@ describe('Performance', () => {
     const processor = new BrokleSpanProcessor(exporter, config);
 
     const span = createMockSpan({
-      [Attrs.METADATA]: {
+      [Attrs.BROKLE_TRACE_METADATA]: {
         user: { email: 'john@example.com', ssn: '123-45-6789' },
         data: ['value1', 'value2', 'value3'],
       },
@@ -912,7 +913,7 @@ describe('MaskingHelper - Integration', () => {
     await client.startActiveSpan('test-real-masking', async (span) => {
       span.setAttribute(Attrs.INPUT_VALUE, 'Contact john@example.com');
       span.setAttribute(Attrs.OUTPUT_VALUE, 'Sent to admin@company.org');
-      span.setAttribute(Attrs.METADATA, { support: 'help@example.com' });
+      span.setAttribute(Attrs.BROKLE_TRACE_METADATA, { support: 'help@example.com' });
     });
 
     // Shutdown triggers onEnd() which applies masking

@@ -318,7 +318,7 @@ span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, 'gpt-4');
 span.setAttribute(Attrs.GEN_AI_OPERATION_NAME, 'chat');
 span.setAttribute(Attrs.USER_ID, 'user-123');
 span.setAttribute(Attrs.SESSION_ID, 'session-456');
-span.setAttribute(Attrs.TAGS, JSON.stringify(['production', 'critical']));
+span.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(['production', 'critical']));
 ```
 
 ## Integration Packages

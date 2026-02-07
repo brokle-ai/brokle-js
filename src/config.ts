@@ -106,7 +106,6 @@ export function loadFromEnv(): BrokleConfigInput {
     metricsEnabled: process.env.BROKLE_METRICS_ENABLED !== 'false',
     logsEnabled: process.env.BROKLE_LOGS_ENABLED === 'true', // Opt-in
     release: process.env.BROKLE_RELEASE,
-    version: process.env.BROKLE_VERSION,
     sampleRate: process.env.BROKLE_SAMPLE_RATE
       ? parseFloat(process.env.BROKLE_SAMPLE_RATE)
       : undefined,
@@ -141,7 +140,6 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
       metricsEnabled: input.metricsEnabled ?? DEFAULT_CONFIG.metricsEnabled,
       logsEnabled: input.logsEnabled ?? DEFAULT_CONFIG.logsEnabled,
       release: input.release || DEFAULT_CONFIG.release,
-      version: input.version || DEFAULT_CONFIG.version,
       sampleRate: input.sampleRate ?? DEFAULT_CONFIG.sampleRate,
       flushAt: input.flushAt ?? DEFAULT_CONFIG.flushAt,
       flushInterval: input.flushInterval ?? DEFAULT_CONFIG.flushInterval,
@@ -172,7 +170,6 @@ export function validateConfig(input: BrokleConfigInput): BrokleConfig {
     metricsEnabled: input.metricsEnabled ?? DEFAULT_CONFIG.metricsEnabled,
     logsEnabled: input.logsEnabled ?? DEFAULT_CONFIG.logsEnabled,
     release: input.release || DEFAULT_CONFIG.release,
-    version: input.version || DEFAULT_CONFIG.version,
     sampleRate: input.sampleRate ?? DEFAULT_CONFIG.sampleRate,
     flushAt: input.flushAt ?? DEFAULT_CONFIG.flushAt,
     flushInterval: input.flushInterval ?? DEFAULT_CONFIG.flushInterval,

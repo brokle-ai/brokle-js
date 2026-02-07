@@ -510,8 +510,8 @@ span.setAttribute(Attrs.BROKLE_VERSION, '1.0');
 // Filterable metadata
 span.setAttribute(Attrs.USER_ID, 'user-123');
 span.setAttribute(Attrs.SESSION_ID, 'session-456');
-span.setAttribute(Attrs.TAGS, JSON.stringify(['production']));
-span.setAttribute(Attrs.METADATA, JSON.stringify({ feature: 'chat' }));
+span.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(['production']));
+span.setAttribute(Attrs.BROKLE_TRACE_METADATA, JSON.stringify({ feature: 'chat' }));
 ```
 
 ## Development Commands

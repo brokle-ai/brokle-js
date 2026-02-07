@@ -90,13 +90,13 @@ export function observe(options: ObserveOptions = {}) {
         attrs[Attrs.SESSION_ID] = options.sessionId;
       }
       if (options.tags && options.tags.length > 0) {
-        attrs[Attrs.TAGS] = JSON.stringify(options.tags);
+        attrs[Attrs.BROKLE_TRACE_TAGS] = JSON.stringify(options.tags);
       }
       if (options.metadata && Object.keys(options.metadata).length > 0) {
-        attrs[Attrs.METADATA] = JSON.stringify(options.metadata);
+        attrs[Attrs.BROKLE_TRACE_METADATA] = JSON.stringify(options.metadata);
       }
       if (options.version) {
-        attrs[Attrs.BROKLE_VERSION] = options.version;
+        attrs[Attrs.BROKLE_SPAN_VERSION] = options.version;
       }
 
       // Link prompt if provided and NOT a fallback
@@ -198,13 +198,13 @@ export function traceFunction<T extends (...args: any[]) => Promise<any>>(
       attrs[Attrs.SESSION_ID] = options.sessionId;
     }
     if (options.tags && options.tags.length > 0) {
-      attrs[Attrs.TAGS] = JSON.stringify(options.tags);
+      attrs[Attrs.BROKLE_TRACE_TAGS] = JSON.stringify(options.tags);
     }
     if (options.metadata && Object.keys(options.metadata).length > 0) {
-      attrs[Attrs.METADATA] = JSON.stringify(options.metadata);
+      attrs[Attrs.BROKLE_TRACE_METADATA] = JSON.stringify(options.metadata);
     }
     if (options.version) {
-      attrs[Attrs.BROKLE_VERSION] = options.version;
+      attrs[Attrs.BROKLE_SPAN_VERSION] = options.version;
     }
 
     // Link prompt if provided and NOT a fallback

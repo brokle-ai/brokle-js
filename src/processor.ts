@@ -25,7 +25,8 @@ const MASKABLE_ATTRIBUTES = [
   Attrs.OUTPUT_VALUE,
   Attrs.GEN_AI_INPUT_MESSAGES,
   Attrs.GEN_AI_OUTPUT_MESSAGES,
-  Attrs.METADATA,
+  Attrs.BROKLE_TRACE_METADATA,
+  Attrs.BROKLE_STATUS_MESSAGE, // Can contain error context with PII
 ] as const;
 
 /**

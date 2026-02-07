@@ -65,7 +65,7 @@ async function openaiWithContext() {
     // Add user/session context
     span.setAttribute(Attrs.USER_ID, 'user-456');
     span.setAttribute(Attrs.SESSION_ID, 'session-789');
-    span.setAttribute(Attrs.TAGS, JSON.stringify(['production', 'customer-support']));
+    span.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(['production', 'customer-support']));
 
     try {
       const response = await openai.chat.completions.create({

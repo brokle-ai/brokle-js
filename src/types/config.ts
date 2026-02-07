@@ -26,8 +26,6 @@ export interface BrokleConfigInput {
   logsEnabled?: boolean;
   /** Release identifier for deployment tracking (e.g., 'v2.1.24', git commit hash) */
   release?: string;
-  /** Trace-level version for A/B testing experiments (e.g., 'experiment-A', 'control') */
-  version?: string;
   /** Trace-level sampling rate (0.0 to 1.0) */
   sampleRate?: number;
   /**
@@ -78,7 +76,6 @@ export interface BrokleConfig {
   metricsEnabled: boolean;
   logsEnabled: boolean;
   release: string;
-  version: string;
   sampleRate: number;
   mask?: (data: unknown) => unknown;
   flushAt: number;
@@ -103,7 +100,6 @@ export const DEFAULT_CONFIG: Omit<BrokleConfig, 'apiKey'> = {
   metricsEnabled: true,
   logsEnabled: false, // Opt-in, matching Python SDK
   release: '',
-  version: '',
   sampleRate: 1.0,
   flushAt: 100,
   flushInterval: 10, // seconds

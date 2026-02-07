@@ -5,7 +5,7 @@
  * following the patterns defined in the integration ecosystem design.
  */
 
-import type { BrokleClient } from './client';
+import type { Brokle } from './client';
 
 /**
  * Integration type classification
@@ -91,7 +91,7 @@ export interface BrokleIntegration {
   /**
    * Register the integration with a Brokle client
    */
-  register(client: BrokleClient): void;
+  register(client: Brokle): void;
 
   /**
    * Unregister the integration
@@ -128,7 +128,7 @@ export abstract class BaseIntegration implements BrokleIntegration {
   abstract readonly metadata: IntegrationMetadata;
 
   protected _status: IntegrationStatus = 'disabled';
-  protected _client: BrokleClient | null = null;
+  protected _client: Brokle | null = null;
   protected _config: IntegrationConfig;
   protected _stats: IntegrationStats;
 
@@ -157,7 +157,7 @@ export abstract class BaseIntegration implements BrokleIntegration {
     return { ...this._stats };
   }
 
-  register(client: BrokleClient): void {
+  register(client: Brokle): void {
     if (this._status !== 'disabled' && this._status !== 'error') {
       console.warn(`[Brokle] Integration ${this.metadata.name} is already registered`);
       return;
@@ -276,7 +276,7 @@ export abstract class BaseIntegration implements BrokleIntegration {
   /**
    * Get the Brokle client
    */
-  protected getClient(): BrokleClient {
+  protected getClient(): Brokle {
     if (!this._client) {
       throw new Error(`Integration ${this.metadata.name} is not registered`);
     }
@@ -326,7 +326,7 @@ export class IntegrationRegistry {
   /**
    * Register an integration
    */
-  register(integration: BrokleIntegration, client: BrokleClient): void {
+  register(integration: BrokleIntegration, client: Brokle): void {
     const name = integration.metadata.name;
 
     if (this.integrations.has(name)) {

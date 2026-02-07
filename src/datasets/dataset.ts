@@ -27,6 +27,7 @@ import type {
   DatasetItem,
   DatasetItemInput,
   GetItemsOptions,
+  GetVersionItemsOptions,
   APIResponse,
   KeysMapping,
   BulkImportResult,
@@ -696,7 +697,7 @@ export class Dataset implements AsyncIterable<DatasetItem> {
    */
   async getVersionItems(
     versionId: string,
-    options: GetItemsOptions = {}
+    options: GetVersionItemsOptions = {}
   ): Promise<{ items: DatasetItem[]; total: number }> {
     const { limit = 50, offset = 0 } = options;
 

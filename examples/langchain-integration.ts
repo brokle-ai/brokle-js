@@ -203,9 +203,9 @@ async function combinedWithBrokleClient() {
       // Set custom attributes on parent span
       parentSpan.setAttribute(Attrs.USER_ID, 'user-888');
       parentSpan.setAttribute(Attrs.SESSION_ID, 'session-pqr');
-      parentSpan.setAttribute(Attrs.TAGS, JSON.stringify(['important', 'premium']));
+      parentSpan.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(['important', 'premium']));
       parentSpan.setAttribute(
-        Attrs.METADATA,
+        Attrs.BROKLE_TRACE_METADATA,
         JSON.stringify({
           source: 'web-app',
           path: '/api/chat',

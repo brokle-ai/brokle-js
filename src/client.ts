@@ -99,9 +99,6 @@ export class Brokle {
     if (this.config.release) {
       resourceAttrs[Attrs.BROKLE_RELEASE] = this.config.release;
     }
-    if (this.config.version) {
-      resourceAttrs[Attrs.BROKLE_VERSION] = this.config.version;
-    }
 
     if (Object.keys(resourceAttrs).length > 0) {
       resource = resource.merge(resourceFromAttributes(resourceAttrs));
@@ -238,7 +235,7 @@ export class Brokle {
     const attrs = { ...(attributes ?? {}) };
 
     if (options?.version) {
-      attrs[Attrs.BROKLE_VERSION] = options.version;
+      attrs[Attrs.BROKLE_SPAN_VERSION] = options.version;
     }
 
     // Auto-detect LLM messages (ChatML) vs generic data
@@ -391,10 +388,28 @@ export class Brokle {
   updateCurrentSpan(options: {
     /** Prompt to link (fallback prompts are not linked) */
     prompt?: Prompt;
+    /** Input value to set */
+    input?: unknown;
     /** Output value to set */
     output?: unknown;
     /** Metadata to set */
     metadata?: Record<string, unknown>;
+    /** Token usage — sets proper OTEL gen_ai.usage.* attributes */
+    usage?: {
+      inputTokens?: number;
+      outputTokens?: number;
+      totalTokens?: number;
+    };
+    /** Model name (when resolved after span creation) */
+    model?: string;
+    /** Span severity level */
+    level?: 'DEBUG' | 'DEFAULT' | 'WARNING' | 'ERROR';
+    /** Span version for A/B testing */
+    version?: string;
+    /** Tags for filtering */
+    tags?: string[];
+    /** Status message (error context, warnings) */
+    statusMessage?: string;
   }): boolean {
     const span = trace.getActiveSpan();
 
@@ -414,6 +429,16 @@ export class Brokle {
       }
     }
 
+    if (options.input !== undefined) {
+      if (isChatMLFormat(options.input)) {
+        span.setAttribute(Attrs.GEN_AI_INPUT_MESSAGES, JSON.stringify(options.input));
+      } else {
+        const [inputStr, mimeType] = serializeWithMime(options.input);
+        span.setAttribute(Attrs.INPUT_VALUE, inputStr);
+        span.setAttribute(Attrs.INPUT_MIME_TYPE, mimeType);
+      }
+    }
+
     if (options.output !== undefined) {
       if (isChatMLFormat(options.output)) {
         span.setAttribute(Attrs.GEN_AI_OUTPUT_MESSAGES, JSON.stringify(options.output));
@@ -425,7 +450,41 @@ export class Brokle {
     }
 
     if (options.metadata) {
-      span.setAttribute(Attrs.METADATA, JSON.stringify(options.metadata));
+      span.setAttribute(Attrs.BROKLE_TRACE_METADATA, JSON.stringify(options.metadata));
+    }
+
+    if (options.usage) {
+      if (options.usage.inputTokens !== undefined) {
+        span.setAttribute(Attrs.GEN_AI_USAGE_INPUT_TOKENS, options.usage.inputTokens);
+      }
+      if (options.usage.outputTokens !== undefined) {
+        span.setAttribute(Attrs.GEN_AI_USAGE_OUTPUT_TOKENS, options.usage.outputTokens);
+      }
+      const total = options.usage.totalTokens
+        ?? (options.usage.inputTokens ?? 0) + (options.usage.outputTokens ?? 0);
+      if (total > 0) {
+        span.setAttribute(Attrs.BROKLE_USAGE_TOTAL_TOKENS, total);
+      }
+    }
+
+    if (options.model) {
+      span.setAttribute(Attrs.GEN_AI_REQUEST_MODEL, options.model);
+    }
+
+    if (options.level) {
+      span.setAttribute(Attrs.BROKLE_SPAN_LEVEL, options.level);
+    }
+
+    if (options.version) {
+      span.setAttribute(Attrs.BROKLE_SPAN_VERSION, options.version);
+    }
+
+    if (options.tags) {
+      span.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(options.tags));
+    }
+
+    if (options.statusMessage) {
+      span.setAttribute(Attrs.BROKLE_STATUS_MESSAGE, options.statusMessage);
     }
 
     if (this.config.debug) {
@@ -871,9 +930,6 @@ export class Brokle {
     const resourceAttrs: Record<string, string> = {};
     if (config.release) {
       resourceAttrs[Attrs.BROKLE_RELEASE] = config.release;
-    }
-    if (config.version) {
-      resourceAttrs[Attrs.BROKLE_VERSION] = config.version;
     }
     if (Object.keys(resourceAttrs).length > 0) {
       resource = resource.merge(resourceFromAttributes(resourceAttrs));

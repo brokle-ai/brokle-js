@@ -132,6 +132,7 @@ export type {
   DatasetConfig,
   CreateDatasetOptions,
   GetItemsOptions,
+  GetVersionItemsOptions,
   ListDatasetsOptions,
 } from './datasets';
 

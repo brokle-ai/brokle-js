@@ -71,14 +71,16 @@ export const BrokleOtelSpanAttributes = {
   // ========== Brokle Custom ==========
   BROKLE_SPAN_TYPE: 'brokle.span.type',
   BROKLE_SPAN_LEVEL: 'brokle.span.level',
-  BROKLE_SPAN_VERSION: 'brokle.span.version',  // Span-level version for A/B testing
   BROKLE_USAGE_TOTAL_TOKENS: 'brokle.usage.total_tokens',
   BROKLE_USAGE_LATENCY_MS: 'brokle.usage.latency_ms',
   BROKLE_STREAMING: 'brokle.streaming',
   BROKLE_PROJECT_ID: 'brokle.project_id',
   BROKLE_ENVIRONMENT: 'brokle.environment',
-  BROKLE_VERSION: 'brokle.version',  // Trace-level version
+  BROKLE_SPAN_VERSION: 'brokle.span.version',  // Per-span version for A/B testing
   BROKLE_RELEASE: 'brokle.release',  // Release identifier
+  BROKLE_TRACE_TAGS: 'brokle.trace.tags',
+  BROKLE_TRACE_METADATA: 'brokle.trace.metadata',
+  BROKLE_STATUS_MESSAGE: 'brokle.status_message',
 
   // Note: brokle.cost.* attributes are set by BACKEND only (calculated from usage + model pricing)
   // SDKs should NOT set cost attributes - backend calculates costs server-side
@@ -133,8 +135,6 @@ export const BrokleOtelSpanAttributes = {
   // ========== Filterable Metadata ==========
   USER_ID: 'user.id', // OTEL standard
   SESSION_ID: 'session.id', // OTEL standard
-  TAGS: 'tags',
-  METADATA: 'metadata',
 } as const;
 
 export type AttributeKey = typeof BrokleOtelSpanAttributes[keyof typeof BrokleOtelSpanAttributes];

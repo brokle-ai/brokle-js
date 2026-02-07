@@ -30,7 +30,7 @@ async function test1_SimpleSpan() {
   await client.startActiveSpan('e2e-simple-span', async (span) => {
     span.setAttribute(Attrs.USER_ID, 'e2e-user-123');  // user.id
     span.setAttribute(Attrs.SESSION_ID, 'e2e-session-456');  // session.id
-    span.setAttribute(Attrs.TAGS, JSON.stringify(['e2e', 'test', 'simple']));
+    span.setAttribute(Attrs.BROKLE_TRACE_TAGS, JSON.stringify(['e2e', 'test', 'simple']));
     span.setAttribute('custom.attribute', 'test-value');
 
     // Simulate some work

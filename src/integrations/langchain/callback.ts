@@ -175,13 +175,13 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
       attributes[Attrs.SESSION_ID] = sessionId;
     }
     if (allTags.length > 0) {
-      attributes[Attrs.TAGS] = JSON.stringify(allTags);
+      attributes[Attrs.BROKLE_TRACE_TAGS] = JSON.stringify(allTags);
     }
     if (Object.keys(allMetadata).length > 0) {
-      attributes[Attrs.METADATA] = JSON.stringify(allMetadata);
+      attributes[Attrs.BROKLE_TRACE_METADATA] = JSON.stringify(allMetadata);
     }
     if (this.version) {
-      attributes[Attrs.BROKLE_VERSION] = this.version;
+      attributes[Attrs.BROKLE_SPAN_VERSION] = this.version;
     }
 
     // Start span (manual control - keep open until handleLLMEnd)
@@ -315,13 +315,13 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
       attributes[Attrs.SESSION_ID] = sessionId;
     }
     if (allTags.length > 0) {
-      attributes[Attrs.TAGS] = JSON.stringify(allTags);
+      attributes[Attrs.BROKLE_TRACE_TAGS] = JSON.stringify(allTags);
     }
     if (Object.keys(allMetadata).length > 0) {
-      attributes[Attrs.METADATA] = JSON.stringify(allMetadata);
+      attributes[Attrs.BROKLE_TRACE_METADATA] = JSON.stringify(allMetadata);
     }
     if (this.version) {
-      attributes[Attrs.BROKLE_VERSION] = this.version;
+      attributes[Attrs.BROKLE_SPAN_VERSION] = this.version;
     }
 
     const span = this.tracer.startSpan(spanName, { attributes }, parentContext);
@@ -423,13 +423,13 @@ export class BrokleLangChainCallback extends BaseCallbackHandler {
       attributes[Attrs.SESSION_ID] = sessionId;
     }
     if (allTags.length > 0) {
-      attributes[Attrs.TAGS] = JSON.stringify(allTags);
+      attributes[Attrs.BROKLE_TRACE_TAGS] = JSON.stringify(allTags);
     }
     if (Object.keys(allMetadata).length > 0) {
-      attributes[Attrs.METADATA] = JSON.stringify(allMetadata);
+      attributes[Attrs.BROKLE_TRACE_METADATA] = JSON.stringify(allMetadata);
     }
     if (this.version) {
-      attributes[Attrs.BROKLE_VERSION] = this.version;
+      attributes[Attrs.BROKLE_SPAN_VERSION] = this.version;
     }
 
     const span = this.tracer.startSpan(spanName, { attributes }, parentContext);
