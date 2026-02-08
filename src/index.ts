@@ -238,6 +238,7 @@ export {
   RateLimitError,
   NotFoundError,
   ServerError,
+  SpanTimeoutError,
   raiseForStatus,
 } from './errors';
 export type { BrokleErrorDetails } from './errors';

@@ -13,6 +13,7 @@ import { defaultResource, resourceFromAttributes } from '@opentelemetry/resource
 import type { MeterProvider } from '@opentelemetry/sdk-metrics';
 import type { LoggerProvider } from '@opentelemetry/sdk-logs';
 import type { BrokleConfig, BrokleConfigInput } from './types/config';
+import { SpanTimeoutError } from './errors';
 import { validateConfig, loadFromEnv } from './config';
 import { createTraceExporter, createTraceExporterAsync, TransportType } from './transport';
 import { createMeterProviderAsync } from './metrics';
@@ -220,12 +221,17 @@ export class Brokle {
       version?: string;
       input?: unknown;
       output?: unknown;
+      /** Maximum time in milliseconds to wait for the callback to resolve.
+       *  If exceeded, the span ends with ERROR status and a SpanTimeoutError is thrown.
+       *  Pass 0 for an immediate timeout. Non-finite and negative values are ignored.
+       *  Default: no timeout. */
+      timeout?: number;
     }
   ): Promise<T> {
     if (!this.config.enabled) {
       return await this.tracer.startActiveSpan(name, async (span) => {
         try {
-          return await fn(span);
+          return await this.awaitWithOptionalTimeout(fn(span), name, options?.timeout);
         } finally {
           span.end();
         }
@@ -261,7 +267,7 @@ export class Brokle {
 
     return await this.tracer.startActiveSpan(name, { attributes: attrs }, async (span) => {
       try {
-        const result = await fn(span);
+        const result = await this.awaitWithOptionalTimeout(fn(span), name, options?.timeout);
         span.setStatus({ code: SpanStatusCode.OK });
         return result;
       } catch (error) {
@@ -275,6 +281,38 @@ export class Brokle {
       } finally {
         span.end();
       }
+    });
+  }
+
+  /**
+   * Await a promise with an optional timeout.
+   * If timeout is set and exceeded, rejects with SpanTimeoutError.
+   * The timer is cleared on normal resolution to avoid Node.js timer leaks.
+   */
+  private awaitWithOptionalTimeout<T>(
+    promise: Promise<T>,
+    spanName: string,
+    timeout?: number
+  ): Promise<T> {
+    if (!Number.isFinite(timeout) || timeout < 0) {
+      return promise;
+    }
+
+    // timeout=0 means immediate timeout — reject synchronously without
+    // racing against the event loop (setTimeout(fn,0) is a macrotask
+    // that loses to microtask-resolved callbacks).
+    if (timeout === 0) {
+      promise.catch(() => {}); // prevent unhandled rejection from orphaned promise
+      return Promise.reject(new SpanTimeoutError(spanName, 0));
+    }
+
+    let timer: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new SpanTimeoutError(spanName, timeout)), timeout);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      clearTimeout(timer);
     });
   }
 

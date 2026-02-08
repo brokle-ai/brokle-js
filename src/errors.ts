@@ -270,6 +270,29 @@ export class ServerError extends BrokleError {
 }
 
 /**
+ * Span callback timed out.
+ *
+ * Raised when a `startActiveSpan` callback doesn't resolve within the
+ * configured timeout. The span is ended with ERROR status to prevent leaks.
+ */
+export class SpanTimeoutError extends BrokleError {
+  readonly spanName: string;
+  readonly timeoutMs: number;
+
+  constructor(spanName: string, timeoutMs: number) {
+    super(`Span "${spanName}" timed out after ${timeoutMs}ms`, {
+      hint: `The callback passed to startActiveSpan did not resolve within ${timeoutMs}ms.
+This typically means the callback's Promise never settled (e.g., waiting for an
+event that never fires). Ensure all code paths resolve or reject the Promise.`,
+      details: { spanName, timeoutMs },
+    });
+    this.name = 'SpanTimeoutError';
+    this.spanName = spanName;
+    this.timeoutMs = timeoutMs;
+  }
+}
+
+/**
  * Raise appropriate error based on HTTP status code.
  */
 export function raiseForStatus(
