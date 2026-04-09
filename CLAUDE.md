@@ -46,7 +46,7 @@ The SDK provides tree-shakeable sub-path imports:
 
 ```typescript
 // Core SDK
-import { BrokleClient, traced, getClient } from 'brokle';
+import { BrokleClient, getClient } from 'brokle';
 
 // OpenAI integration
 import { wrapOpenAI } from 'brokle/openai';
@@ -276,7 +276,7 @@ pnpm lint --fix   # Auto-fix issues
 ```bash
 # Brokle API configuration
 BROKLE_API_KEY=your_api_key
-BROKLE_BASE_URL=http://localhost:8080
+BROKLE_BASE_URL=https://api.brokle.com
 
 # For testing
 NODE_ENV=test
@@ -344,3 +344,7 @@ Benefits of this pattern:
 - **npm**: https://www.npmjs.com/package/brokle
 - **tsup Docs**: https://tsup.egoist.dev/
 - **Vitest Docs**: https://vitest.dev/
+
+
+## Compatibility Notes
+- Backward compatibility is not required yet; there is no production data because the product has not been released.

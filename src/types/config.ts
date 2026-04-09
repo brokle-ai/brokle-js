@@ -12,7 +12,7 @@ export interface BrokleConfigInput {
   apiKey?: string;
   /** Master switch: if false, SDK is completely disabled (no resources, no-op everything) */
   enabled?: boolean;
-  /** Base URL for Brokle API (default: http://localhost:8080) */
+  /** Base URL for Brokle API (default: https://api.brokle.com) */
   baseUrl?: string;
   /** Environment tag (e.g., 'production', 'staging', 'development') */
   environment?: string;
@@ -93,7 +93,7 @@ export interface BrokleConfig {
  */
 export const DEFAULT_CONFIG: Omit<BrokleConfig, 'apiKey'> = {
   enabled: true,
-  baseUrl: 'http://localhost:8080',
+  baseUrl: 'https://api.brokle.com',
   environment: 'default',
   debug: false,
   tracingEnabled: true,

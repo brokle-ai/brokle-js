@@ -256,7 +256,7 @@ describe('validateConfig', () => {
 
       const validated = validateConfig(config);
 
-      expect(validated.baseUrl).toBe('http://localhost:8080');
+      expect(validated.baseUrl).toBe('https://api.brokle.com');
       expect(validated.environment).toBe('default');
       expect(validated.sampleRate).toBe(1.0);
       expect(validated.flushAt).toBe(100);
