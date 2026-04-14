@@ -23,8 +23,8 @@ The JavaScript SDK is in early development. We're building comprehensive JavaScr
 
 1. **Fork and clone the repository**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/brokle-js.git
-   cd brokle-js
+   git clone https://github.com/YOUR_USERNAME/steloit-js.git
+   cd steloit-js
    ```
 
 2. **Install dependencies** (when available):
@@ -237,7 +237,7 @@ To release a new version of the JavaScript SDK:
    - Push commit and tag to GitHub
 
 3. **Create GitHub Release manually**:
-   - Go to: https://github.com/brokle-ai/brokle-js/releases/new
+   - Go to: https://github.com/steloit/steloit-js/releases/new
    - Select the tag that was just created
    - Click "Generate release notes"
    - Review and edit release notes as needed

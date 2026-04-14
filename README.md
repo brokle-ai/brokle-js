@@ -443,5 +443,5 @@ const client = wrapOpenAI(new OpenAI());
 ## Support
 
 - Documentation: https://docs.brokle.ai
-- GitHub: https://github.com/brokle-ai/brokle-js
-- Issues: https://github.com/brokle-ai/brokle-js/issues
+- GitHub: https://github.com/steloit/steloit-js
+- Issues: https://github.com/steloit/steloit-js/issues

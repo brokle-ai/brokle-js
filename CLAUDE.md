@@ -340,7 +340,7 @@ Benefits of this pattern:
 
 ## Links
 
-- **Repository**: https://github.com/brokle-ai/brokle-js
+- **Repository**: https://github.com/steloit/steloit-js
 - **npm**: https://www.npmjs.com/package/brokle
 - **tsup Docs**: https://tsup.egoist.dev/
 - **Vitest Docs**: https://vitest.dev/

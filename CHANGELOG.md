@@ -48,8 +48,8 @@ This is the first public release of the Brokle JavaScript SDK monorepo.
 
 ## Version Links
 
-[Unreleased]: https://github.com/brokle-ai/brokle-js/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/brokle-ai/brokle-js/releases/tag/v0.1.0
+[Unreleased]: https://github.com/steloit/steloit-js/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/steloit/steloit-js/releases/tag/v0.1.0
 
 ---
 

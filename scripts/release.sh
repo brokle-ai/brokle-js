@@ -149,7 +149,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "📋 NEXT STEPS:"
 echo ""
-echo "1. Go to: https://github.com/brokle-ai/brokle-js/releases/new"
+echo "1. Go to: https://github.com/steloit/steloit-js/releases/new"
 echo "2. Select tag: v$NEW_VERSION"
 echo "3. Click 'Generate release notes'"
 echo "4. Review and edit release notes"
