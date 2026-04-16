@@ -739,7 +739,7 @@ export class ExperimentsManager {
   /**
    * Get an existing experiment by ID.
    *
-   * @param experimentId - The experiment ID (ULID format)
+   * @param experimentId - The experiment ID
    * @returns Experiment metadata
    *
    * @example

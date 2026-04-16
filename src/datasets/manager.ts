@@ -175,7 +175,7 @@ export class DatasetsManager {
   /**
    * Get an existing dataset by ID.
    *
-   * @param datasetId - The dataset ID (ULID format)
+   * @param datasetId - The dataset ID
    * @returns Dataset instance for managing items
    *
    * @example

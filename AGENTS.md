@@ -20,3 +20,21 @@ Follow the informal `<type>: <summary>` message pattern (for example `feat: add 
 
 ## Security & Configuration Tips
 Do not commit provider credentials; read them from environment variables and document expected names in package READMEs. When capturing telemetry, scrub PII before exporting traces. Use gitignored `.env.local` files for local secrets and share sanitized snippets in docs.
+
+## Known Gotchas
+
+1. **Symbol.for('brokle') singleton is first-write-wins** — First `new BrokleClient()` call registers on `globalThis` via `Symbol.for('brokle')`. Subsequent calls with different configs are silently ignored. Use `setClient()` to explicitly override. This survives module reloads and bundler boundaries.
+2. **AsyncLocalStorage context scoping** — `withBrokleClient()` uses `Symbol.for('brokle:context')` backed by Node's `AsyncLocalStorage`. Context is per async chain, not global. Forgetting to wrap code in `withBrokleClient()` silently uses the default singleton.
+3. **Proxy pattern for wrappers** — `wrapOpenAI()`, `wrapAnthropic()` etc. return recursive `Proxy` objects that intercept `get` operations. Symbols pass through untouched (`typeof prop === 'symbol'`). Don't subclass or extend provider clients — wrap them.
+4. **Multi-entry tsup build** — 11 entry points (core + 10 integrations) produce separate `.d.ts` files. Import from sub-paths: `import { wrapOpenAI } from 'brokle/openai'`, never from root `'brokle'`. Wrong import path breaks tree-shaking.
+5. **Optional peer deps fail at call time, not import time** — Provider SDKs (openai, @anthropic-ai/sdk, etc.) are optional peer deps. `import { wrapOpenAI } from 'brokle/openai'` succeeds even without openai installed. The error only surfaces when `wrapOpenAI()` is called and validates `client.chat?.completions?.create`.
+6. **Node >= 20 required** — `engines` field enforces Node 20+. AsyncLocalStorage and ES2023 features are used. No browser or Node 18 support without polyfills.
+7. **`enabled: false` creates a no-op client** — Disabled client still registers the singleton via `Symbol.for()`, but all telemetry is discarded. No provider initialization, no resource creation.
+8. **gRPC exports are optional dependencies** — `@opentelemetry/exporter-*-otlp-grpc` packages are in `optionalDependencies`. If gRPC transport is configured but packages aren't installed, export silently falls back or fails.
+
+## Lessons Learned
+
+- 2026-04-14: The root repo's AGENTS.md documents cross-cutting SDK gotchas (submodule workflow, singleton pattern, optional peer deps). Check it for platform-wide context before making changes.
+
+## Compatibility Notes
+- Backward compatibility is not required yet; there is no production data because the product has not been released.
