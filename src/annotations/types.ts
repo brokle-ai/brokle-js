@@ -192,15 +192,3 @@ export interface AnnotationsManagerConfig {
   debug?: boolean;
 }
 
-/**
- * API response envelope
- */
-export interface APIResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    type?: string;
-  };
-}

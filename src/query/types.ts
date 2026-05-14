@@ -65,16 +65,6 @@ export interface QueryManagerConfig {
   debug?: boolean;
 }
 
-export interface APIResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    type?: string;
-  };
-}
-
 export interface SpanData {
   trace_id: string;
   span_id: string;

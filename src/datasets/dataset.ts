@@ -21,6 +21,8 @@
  * ```
  */
 
+import { BrokleHttpClient } from '../_http';
+import { BrokleError } from '../errors';
 import type {
   DatasetConfig,
   DatasetData,
@@ -28,7 +30,6 @@ import type {
   DatasetItemInput,
   GetItemsOptions,
   GetVersionItemsOptions,
-  APIResponse,
   KeysMapping,
   BulkImportResult,
   ImportOptions,
@@ -79,8 +80,7 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   private readonly _metadata?: Record<string, unknown>;
   private readonly _createdAt: string;
   private readonly _updatedAt: string;
-  private readonly baseUrl: string;
-  private readonly apiKey: string;
+  private readonly http: BrokleHttpClient;
   private readonly debug: boolean;
 
   constructor(config: DatasetConfig, data: DatasetData) {
@@ -90,8 +90,10 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     this._metadata = data.metadata;
     this._createdAt = data.created_at;
     this._updatedAt = data.updated_at;
-    this.baseUrl = config.baseUrl;
-    this.apiKey = config.apiKey;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
     this.debug = config.debug ?? false;
   }
 
@@ -125,73 +127,24 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     }
   }
 
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new DatasetError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpGet<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, String(value));
-      });
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new DatasetError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private unwrapResponse<T>(response: APIResponse<T>): T {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new DatasetError('Request failed with no error details');
+  /**
+   * call wraps an HTTP call so any BrokleError subclass is re-thrown
+   * as a DatasetError. Public consumers catching `DatasetError` keep
+   * working across the envelope migration.
+   */
+  private async call<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof DatasetError) throw error;
+      if (error instanceof BrokleError) {
+        throw new DatasetError(error.message);
       }
-      throw new DatasetError(`${error.code}: ${error.message}`);
-    }
-
-    if (response.data === undefined) {
-      throw new DatasetError('Response missing data field');
-    }
-
-    return response.data;
-  }
-
-  private extractTotal<T>(response: APIResponse<T>): number {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new DatasetError('Request failed with no error details');
+      if (error instanceof Error) {
+        throw new DatasetError(error.message);
       }
-      throw new DatasetError(`${error.code}: ${error.message}`);
+      throw new DatasetError(String(error));
     }
-
-    return response.meta?.pagination?.total ?? 0;
   }
 
   /**
@@ -216,12 +169,9 @@ export class Dataset implements AsyncIterable<DatasetItem> {
 
     this.log(`Inserting ${items.length} items into dataset ${this._id}`);
 
-    const rawResponse = await this.httpPost<APIResponse<{ created: number }>>(
-      `/v1/datasets/${this._id}/items`,
-      { items }
+    const data = await this.call(() =>
+      this.http.post<{ created: number }>(`/v1/datasets/${this._id}/items`, { items }),
     );
-
-    const data = this.unwrapResponse(rawResponse);
     return data.created;
   }
 
@@ -244,12 +194,14 @@ export class Dataset implements AsyncIterable<DatasetItem> {
 
     this.log(`Fetching items from dataset ${this._id}: limit=${limit}, page=${page}`);
 
-    const rawResponse = await this.httpGet<APIResponse<DatasetItem[]>>(
-      `/v1/datasets/${this._id}/items`,
-      { limit, page }
+    // List endpoint returns inline `{data, pagination}`.
+    const body = await this.call(() =>
+      this.http.get<{ data: DatasetItem[]; pagination?: unknown }>(
+        `/v1/datasets/${this._id}/items`,
+        { params: { limit, page } },
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
+    return body.data ?? [];
   }
 
   /**
@@ -264,12 +216,14 @@ export class Dataset implements AsyncIterable<DatasetItem> {
    * ```
    */
   async count(): Promise<number> {
-    const rawResponse = await this.httpGet<APIResponse<DatasetItem[]>>(
-      `/v1/datasets/${this._id}/items`,
-      { limit: 1, page: 1 }
+    // List responses inline pagination under `.pagination.total`.
+    const body = await this.call(() =>
+      this.http.get<{ data: DatasetItem[]; pagination?: { total?: number } }>(
+        `/v1/datasets/${this._id}/items`,
+        { params: { limit: 1, page: 1 } },
+      ),
     );
-
-    return this.extractTotal(rawResponse);
+    return body.pagination?.total ?? 0;
   }
 
   /**
@@ -397,12 +351,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
       payload.keys_mapping = this.serializeKeysMapping(options.keysMapping);
     }
 
-    const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
-      `/v1/datasets/${this._id}/items/from-traces`,
-      payload
+    return this.call(() =>
+      this.http.post<BulkImportResult>(
+        `/v1/datasets/${this._id}/items/from-traces`,
+        payload,
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -434,12 +388,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
       payload.keys_mapping = this.serializeKeysMapping(options.keysMapping);
     }
 
-    const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
-      `/v1/datasets/${this._id}/items/from-spans`,
-      payload
+    return this.call(() =>
+      this.http.post<BulkImportResult>(
+        `/v1/datasets/${this._id}/items/from-spans`,
+        payload,
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -462,12 +416,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
       payload.keys_mapping = this.serializeKeysMapping(options.keysMapping);
     }
 
-    const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
-      `/v1/datasets/${this._id}/items/import-json`,
-      payload
+    return this.call(() =>
+      this.http.post<BulkImportResult>(
+        `/v1/datasets/${this._id}/items/import-json`,
+        payload,
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -532,12 +486,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
         deduplicate: options.deduplicate ?? true,
       };
 
-      const rawResponse = await this.httpPost<APIResponse<BulkImportResult>>(
-        `/v1/datasets/${this._id}/items/import-csv`,
-        payload
+      return await this.call(() =>
+        this.http.post<BulkImportResult>(
+          `/v1/datasets/${this._id}/items/import-csv`,
+          payload,
+        ),
       );
-
-      return this.unwrapResponse(rawResponse);
     } catch (error) {
       if (error instanceof Error && error.message.includes('ENOENT')) {
         throw new DatasetError(`File not found: ${filePath}`);
@@ -589,11 +543,11 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   }
 
   private async exportItems(): Promise<DatasetItem[]> {
-    const rawResponse = await this.httpGet<APIResponse<DatasetItem[]>>(
-      `/v1/datasets/${this._id}/items/export`
+    // Export endpoint returns the full item list at top level (no
+    // pagination — this is a bulk export). Response shape: `[...]`.
+    return this.call(() =>
+      this.http.get<DatasetItem[]>(`/v1/datasets/${this._id}/items/export`),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   // ===========================================================================
@@ -626,12 +580,9 @@ export class Dataset implements AsyncIterable<DatasetItem> {
     if (options.description) payload.description = options.description;
     if (options.metadata) payload.metadata = options.metadata;
 
-    const rawResponse = await this.httpPost<APIResponse<DatasetVersion>>(
-      `/v1/datasets/${this._id}/versions`,
-      payload
+    return this.call(() =>
+      this.http.post<DatasetVersion>(`/v1/datasets/${this._id}/versions`, payload),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -650,11 +601,13 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   async listVersions(): Promise<DatasetVersion[]> {
     this.log(`Listing versions for dataset ${this._id}`);
 
-    const rawResponse = await this.httpGet<APIResponse<DatasetVersion[]>>(
-      `/v1/datasets/${this._id}/versions`
+    // Inline `{data, pagination}` list shape.
+    const body = await this.call(() =>
+      this.http.get<{ data: DatasetVersion[]; pagination?: unknown }>(
+        `/v1/datasets/${this._id}/versions`,
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
+    return body.data ?? [];
   }
 
   /**
@@ -672,11 +625,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   async getVersion(versionId: string): Promise<DatasetVersion> {
     this.log(`Getting version ${versionId} for dataset ${this._id}`);
 
-    const rawResponse = await this.httpGet<APIResponse<DatasetVersion>>(
-      `/v1/datasets/${this._id}/versions/${versionId}`
+    return this.call(() =>
+      this.http.get<DatasetVersion>(`/v1/datasets/${this._id}/versions/${versionId}`, {
+        resourceType: 'dataset version',
+        identifier: versionId,
+      }),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -703,12 +657,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
 
     this.log(`Fetching items for version ${versionId}: limit=${limit}, offset=${offset}`);
 
-    const rawResponse = await this.httpGet<APIResponse<{ items: DatasetItem[]; total: number }>>(
-      `/v1/datasets/${this._id}/versions/${versionId}/items`,
-      { limit, offset }
+    return this.call(() =>
+      this.http.get<{ items: DatasetItem[]; total: number }>(
+        `/v1/datasets/${this._id}/versions/${versionId}/items`,
+        { params: { limit, offset } },
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -732,12 +686,12 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   async pinVersion(options: PinVersionOptions = {}): Promise<DatasetWithVersionInfo> {
     this.log(`Pinning dataset ${this._id} to version ${options.versionId ?? 'unpinned'}`);
 
-    const rawResponse = await this.httpPost<APIResponse<DatasetWithVersionInfo>>(
-      `/v1/datasets/${this._id}/pin`,
-      { version_id: options.versionId ?? null }
+    return this.call(() =>
+      this.http.post<DatasetWithVersionInfo>(
+        `/v1/datasets/${this._id}/pin`,
+        { version_id: options.versionId ?? null },
+      ),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 
   /**
@@ -762,10 +716,8 @@ export class Dataset implements AsyncIterable<DatasetItem> {
   async getInfo(): Promise<DatasetWithVersionInfo> {
     this.log(`Getting info for dataset ${this._id}`);
 
-    const rawResponse = await this.httpGet<APIResponse<DatasetWithVersionInfo>>(
-      `/v1/datasets/${this._id}/info`
+    return this.call(() =>
+      this.http.get<DatasetWithVersionInfo>(`/v1/datasets/${this._id}/info`),
     );
-
-    return this.unwrapResponse(rawResponse);
   }
 }

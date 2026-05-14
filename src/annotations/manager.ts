@@ -5,17 +5,21 @@
  * Follows Stripe/OpenAI namespace pattern: client.annotations.addItems()
  */
 
+import { BrokleHttpClient } from '../_http';
+import {
+  AuthenticationError,
+  BrokleError,
+  NotFoundError,
+} from '../errors';
 import type {
   AnnotationsManagerConfig,
   AddItemInput,
   AddItemsResult,
   ListItemsResult,
   ListItemsOptions,
-  APIResponse,
   ObjectType,
 } from './types';
 import {
-  AnnotationError,
   QueueNotFoundError,
   ItemNotFoundError,
   ItemLockedError,
@@ -45,13 +49,14 @@ import {
  * ```
  */
 export class AnnotationsManager {
-  private baseUrl: string;
-  private apiKey: string;
+  private http: BrokleHttpClient;
   private debug: boolean;
 
   constructor(config: AnnotationsManagerConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.apiKey = config.apiKey;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
     this.debug = config.debug ?? false;
   }
 
@@ -61,84 +66,45 @@ export class AnnotationsManager {
     }
   }
 
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      this.handleHttpError(response.status, error);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpGet<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      this.handleHttpError(response.status, error);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
   /**
-   * Handle HTTP errors and transform to appropriate exception
+   * classifyError lifts the shared HTTP client's typed exceptions
+   * into axis-2 domain-specific errors for the narrow cases where
+   * HTTP status alone cannot express the semantic:
+   *
+   *   - 404 on a queue path → QueueNotFoundError
+   *   - 404 on an item path → ItemNotFoundError
+   *   - 403 with "locked" message → ItemLockedError (queue-item lock
+   *     contention, not auth)
+   *   - 4xx with "no items available" → NoItemsAvailableError (empty
+   *     queue state)
+   *
+   * Every other BrokleError subclass (AuthenticationError,
+   * ValidationError, RateLimitError, ServerError, ConnectionError)
+   * propagates unchanged so callers catch the shared HTTP family
+   * uniformly across managers. NEVER blanket-wrap into an
+   * `AnnotationError` — that loses the subclass and forces users to
+   * memorise a parallel per-module hierarchy. See root CLAUDE.md
+   * gotcha on the two-axis error model.
    */
-  private handleHttpError(status: number, errorText: string): never {
-    const lowerError = errorText.toLowerCase();
-
-    if (status === 404 || lowerError.includes('not found')) {
-      if (lowerError.includes('queue')) {
-        throw new QueueNotFoundError(`Queue not found: ${errorText}`);
+  private classifyError(error: unknown): never {
+    if (error instanceof NotFoundError) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('item')) throw new ItemNotFoundError(error.message);
+      throw new QueueNotFoundError(error.message);
+    }
+    if (error instanceof AuthenticationError) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('locked') || msg.includes('forbidden')) {
+        throw new ItemLockedError(`Item is locked: ${error.message}`);
       }
-      if (lowerError.includes('item')) {
-        throw new ItemNotFoundError(`Item not found: ${errorText}`);
+    }
+    if (error instanceof BrokleError) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('no items available') || msg.includes('no pending items')) {
+        throw new NoItemsAvailableError(`No items available for annotation: ${error.message}`);
       }
     }
-
-    if (status === 403 || lowerError.includes('locked') || lowerError.includes('forbidden')) {
-      throw new ItemLockedError(`Item is locked by another user: ${errorText}`);
-    }
-
-    if (lowerError.includes('no items available') || lowerError.includes('no pending items')) {
-      throw new NoItemsAvailableError(`No items available for annotation: ${errorText}`);
-    }
-
-    throw new AnnotationError(`API request failed (${status}): ${errorText}`);
-  }
-
-  /**
-   * Unwrap API response envelope
-   */
-  private unwrapResponse<T>(response: APIResponse<T>): T {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new AnnotationError('Request failed with no error details');
-      }
-      throw new AnnotationError(`${error.code}: ${error.message}`);
-    }
-
-    if (response.data === undefined) {
-      throw new AnnotationError('Response missing data field');
-    }
-
-    return response.data;
+    throw error; // Propagate shared-client errors unchanged.
   }
 
   /**
@@ -172,12 +138,15 @@ export class AnnotationsManager {
 
     const payload = { items: normalizedItems };
 
-    const rawResponse = await this.httpPost<APIResponse<AddItemsResult>>(
-      `/v1/annotation-queues/${queueId}/items`,
-      payload
-    );
-
-    return this.unwrapResponse(rawResponse);
+    try {
+      return await this.http.post<AddItemsResult>(
+        `/v1/annotation-queues/${queueId}/items`,
+        payload,
+        { resourceType: 'queue', identifier: queueId },
+      );
+    } catch (error) {
+      this.classifyError(error);
+    }
   }
 
   /**
@@ -209,9 +178,14 @@ export class AnnotationsManager {
     const queryString = params.toString();
     const url = `/v1/annotation-queues/${queueId}/items${queryString ? `?${queryString}` : ''}`;
 
-    const rawResponse = await this.httpGet<APIResponse<ListItemsResult>>(url);
-
-    return this.unwrapResponse(rawResponse);
+    try {
+      return await this.http.get<ListItemsResult>(url, {
+        resourceType: 'queue',
+        identifier: queueId,
+      });
+    } catch (error) {
+      this.classifyError(error);
+    }
   }
 
   /**

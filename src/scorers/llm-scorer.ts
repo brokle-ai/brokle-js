@@ -52,6 +52,7 @@
 
 import type { Scorer, ScoreResult, ScorerArgs } from '../scores/types';
 import { ScoreType } from '../scores/types';
+import { BrokleHttpClient } from '../_http';
 
 /**
  * Model to provider mapping for automatic provider inference
@@ -157,20 +158,18 @@ export interface LLMScorerOptions {
 }
 
 /**
- * Backend response from playground execute
+ * Backend response body from playground execute.
+ *
+ * The Brokle backend speaks the Stripe/OpenAI-style wire contract:
+ * on 2xx this IS the body (no `{success, data}` envelope); on 4xx/5xx
+ * the shared HTTP client raises a typed BrokleError subclass before
+ * we get here.
  */
 interface PlaygroundResponse {
-  success: boolean;
-  data?: {
-    response?: {
-      content?: string;
-    };
-    error?: string;
+  response?: {
+    content?: string;
   };
-  error?: {
-    code?: string;
-    message?: string;
-  };
+  error?: string;
 }
 
 /**
@@ -202,30 +201,18 @@ async function executeLLM(
     },
   };
 
-  const response = await fetch(`${config.baseUrl}/v1/playground/execute`, {
-    method: 'POST',
-    headers: {
-      'X-API-Key': config.apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
+  const http = new BrokleHttpClient({
+    baseUrl: config.baseUrl,
+    apiKey: config.apiKey,
   });
+  const result = await http.post<PlaygroundResponse>(
+    '/v1/playground/execute',
+    requestBody,
+  );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Playground execution failed (${response.status}): ${errorText}`);
-  }
-
-  const result = (await response.json()) as PlaygroundResponse;
-
-  if (!result.success) {
-    const errorMsg = result.error?.message || 'Unknown error';
-    throw new Error(`Playground execution failed: ${errorMsg}`);
-  }
-
-  const content = result.data?.response?.content;
+  const content = result.response?.content;
   if (!content) {
-    const errorMsg = result.data?.error || 'No content in response';
+    const errorMsg = result.error || 'No content in response';
     throw new Error(`Empty LLM response: ${errorMsg}`);
   }
 

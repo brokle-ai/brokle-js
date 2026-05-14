@@ -44,4 +44,4 @@ export type {
 } from './types';
 
 // Errors
-export { QueryError, QueryAPIError, InvalidFilterError } from './errors';
+export { InvalidFilterError } from './errors';

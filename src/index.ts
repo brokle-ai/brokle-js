@@ -137,7 +137,7 @@ export type {
 } from './datasets';
 
 // Scores Management (new namespace)
-export { ScoresManager, ScoreType, ScoreSource, ScoreError, ScorerError } from './scores';
+export { ScoresManager, ScoreType, ScoreSource, ScorerError } from './scores';
 export type {
   ScoresManagerConfig,
   ScoreResult,
@@ -181,7 +181,7 @@ export type {
 } from './experiments';
 
 // Query Management (span queries for THE WEDGE)
-export { QueryManager, QueryError, QueryAPIError, InvalidFilterError } from './query';
+export { QueryManager, InvalidFilterError } from './query';
 export type {
   QueryManagerConfig,
   QueryOptions,
@@ -218,7 +218,6 @@ export type {
   ListItemsResult,
   ListItemsOptions,
   ScoreSubmission,
-  APIResponse,
 } from './annotations';
 
 // Wrapper utilities (for SDK wrapper packages)

@@ -9,6 +9,7 @@ import { ScoreType } from '../scores/types';
 import type { Dataset } from '../datasets';
 import type { DatasetItem } from '../datasets/types';
 import { DatasetsManager } from '../datasets/manager';
+import { BrokleHttpClient } from '../_http';
 import { EvaluationError } from './errors';
 import type { QueriedSpan } from '../query';
 import type {
@@ -19,7 +20,6 @@ import type {
   EvaluationResults,
   EvaluationItem,
   SummaryStats,
-  APIResponse,
   ExperimentData,
   SubmitItemData,
   RerunExperimentOptions,
@@ -205,14 +205,20 @@ function toComparisonResult(data: ComparisonResultData): ComparisonResult {
  * ```
  */
 export class ExperimentsManager {
+  private http: BrokleHttpClient;
+  // baseUrl is retained purely for constructing dashboard URLs in
+  // EvaluationResults.url (the shape `${baseUrl}/experiments/${id}`).
+  // The HTTP client owns all REST traffic.
   private baseUrl: string;
-  private apiKey: string;
   private debug: boolean;
   private datasetsManager: DatasetsManager;
 
   constructor(config: ExperimentsManagerConfig) {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.apiKey = config.apiKey;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
     this.debug = config.debug ?? false;
     this.datasetsManager = new DatasetsManager(config);
   }
@@ -223,79 +229,22 @@ export class ExperimentsManager {
     }
   }
 
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new EvaluationError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpGet<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, String(value));
-      });
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new EvaluationError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpPatch<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'PATCH',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new EvaluationError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private unwrapResponse<T>(response: APIResponse<T>): T {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new EvaluationError('Request failed with no error details');
+  /**
+   * withEvaluationError wraps a call to the shared HTTP client so
+   * any BrokleError subclass is re-thrown as an EvaluationError
+   * (keeps the manager's public API stable for consumers catching
+   * that type). The raw body is returned untouched.
+   */
+  private async call<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof EvaluationError) throw error;
+      if (error instanceof Error) {
+        throw new EvaluationError(error.message);
       }
-      throw new EvaluationError(`${error.code}: ${error.message}`);
+      throw new EvaluationError(String(error));
     }
-
-    if (response.data === undefined) {
-      throw new EvaluationError('Response missing data field');
-    }
-
-    return response.data;
   }
 
   /**
@@ -396,18 +345,16 @@ export class ExperimentsManager {
     }
 
     // Create experiment via API (without dataset_id for span-based)
-    const createResponse = await this.httpPost<APIResponse<ExperimentData>>(
-      '/v1/experiments',
-      {
+    const experimentData = await this.call(() =>
+      this.http.post<ExperimentData>('/v1/experiments', {
         name,
         metadata: {
           ...metadata,
           source: 'spans',
           span_count: spans.length,
         },
-      }
+      }),
     );
-    const experimentData = this.unwrapResponse(createResponse);
     const experimentId = experimentData.id;
 
     this.log('Created experiment', { experimentId });
@@ -508,14 +455,14 @@ export class ExperimentsManager {
       error: ei.error,
     }));
 
-    await this.httpPost<APIResponse<unknown>>(`/v1/experiments/${experimentId}/items`, {
-      items: submitItems,
-    });
+    await this.call(() =>
+      this.http.post(`/v1/experiments/${experimentId}/items`, { items: submitItems }),
+    );
 
     // Update experiment status
-    await this.httpPatch<APIResponse<unknown>>(`/v1/experiments/${experimentId}`, {
-      status: 'completed',
-    });
+    await this.call(() =>
+      this.http.patch(`/v1/experiments/${experimentId}`, { status: 'completed' }),
+    );
 
     // Compute summary
     const summary = computeSummary(evaluationItems);
@@ -582,15 +529,13 @@ export class ExperimentsManager {
     }
 
     // 3. Create experiment via API
-    const createResponse = await this.httpPost<APIResponse<ExperimentData>>(
-      '/v1/experiments',
-      {
+    const experimentData = await this.call(() =>
+      this.http.post<ExperimentData>('/v1/experiments', {
         name,
         dataset_id: datasetId,
         metadata,
-      }
+      }),
     );
-    const experimentData = this.unwrapResponse(createResponse);
     const experimentId = experimentData.id;
 
     this.log('Created experiment', { experimentId });
@@ -710,14 +655,14 @@ export class ExperimentsManager {
       error: ei.error,
     }));
 
-    await this.httpPost<APIResponse<unknown>>(`/v1/experiments/${experimentId}/items`, {
-      items: submitItems,
-    });
+    await this.call(() =>
+      this.http.post(`/v1/experiments/${experimentId}/items`, { items: submitItems }),
+    );
 
     // 7. Update experiment status
-    await this.httpPatch<APIResponse<unknown>>(`/v1/experiments/${experimentId}`, {
-      status: 'completed',
-    });
+    await this.call(() =>
+      this.http.patch(`/v1/experiments/${experimentId}`, { status: 'completed' }),
+    );
 
     // 8. Compute summary
     const summary = computeSummary(evaluationItems);
@@ -751,10 +696,12 @@ export class ExperimentsManager {
   async get(experimentId: string): Promise<Experiment> {
     this.log('Getting experiment', { id: experimentId });
 
-    const rawResponse = await this.httpGet<APIResponse<ExperimentData>>(
-      `/v1/experiments/${experimentId}`
+    const data = await this.call(() =>
+      this.http.get<ExperimentData>(`/v1/experiments/${experimentId}`, {
+        resourceType: 'experiment',
+        identifier: experimentId,
+      }),
     );
-    const data = this.unwrapResponse(rawResponse);
 
     return toExperiment(data);
   }
@@ -778,14 +725,15 @@ export class ExperimentsManager {
 
     this.log('Listing experiments', { limit, page });
 
-    const rawResponse = await this.httpGet<APIResponse<ExperimentData[]>>(
-      '/v1/experiments',
-      { limit, page }
+    // Inline `{data, pagination}` list shape (no outer envelope).
+    const body = await this.call(() =>
+      this.http.get<{ data: ExperimentData[]; pagination?: unknown }>(
+        '/v1/experiments',
+        { params: { limit, page } },
+      ),
     );
 
-    const data = this.unwrapResponse(rawResponse);
-
-    return data.map(toExperiment);
+    return (body.data ?? []).map(toExperiment);
   }
 
   /**
@@ -817,11 +765,12 @@ export class ExperimentsManager {
     if (options.description) payload.description = options.description;
     if (options.metadata) payload.metadata = options.metadata;
 
-    const rawResponse = await this.httpPost<APIResponse<ExperimentData>>(
-      `/v1/experiments/${experimentId}/rerun`,
-      payload
+    const data = await this.call(() =>
+      this.http.post<ExperimentData>(`/v1/experiments/${experimentId}/rerun`, payload, {
+        resourceType: 'experiment',
+        identifier: experimentId,
+      }),
     );
-    const data = this.unwrapResponse(rawResponse);
 
     return toExperiment(data);
   }
@@ -873,11 +822,9 @@ export class ExperimentsManager {
       payload.baseline_id = options.baselineId;
     }
 
-    const rawResponse = await this.httpPost<APIResponse<ComparisonResultData>>(
-      '/v1/experiments/compare',
-      payload
+    const data = await this.call(() =>
+      this.http.post<ComparisonResultData>('/v1/experiments/compare', payload),
     );
-    const data = this.unwrapResponse(rawResponse);
 
     return toComparisonResult(data);
   }

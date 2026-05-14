@@ -25,6 +25,7 @@ brokle-js/
 │   ├── client.ts              # Brokle client
 │   ├── config.ts              # Configuration
 │   ├── exporter.ts            # OTLP exporter
+│   ├── _http/                 # Shared REST client (BrokleHttpClient)
 │   ├── integrations/
 │   │   ├── openai/            # OpenAI wrapper (brokle/openai)
 │   │   ├── anthropic/         # Anthropic wrapper (brokle/anthropic)
@@ -314,6 +315,24 @@ npm install openai  # For OpenAI users
 ---
 
 ## Architecture Decisions
+
+### Wire Contract (Stripe/OpenAI Style)
+
+The backend emits raw resources on 2xx (`{"id":"prj_123",...}`) and `{"error":{"type","code","message",...}}` on 4xx/5xx. HTTP status is the only success signal — there is NO `{success, data, meta}` envelope. Request IDs arrive in the `X-Request-Id` response header, not the body.
+
+Resource managers (scores, datasets, prompts, experiments, query, annotations) MUST call the shared `BrokleHttpClient` in `src/_http/client.ts` for all REST traffic:
+
+```typescript
+import { BrokleHttpClient } from '../_http';
+
+const http = new BrokleHttpClient({ baseUrl, apiKey });
+const result = await http.post<CreateDatasetResponse>('/v1/datasets', body);
+// `result` is already the raw resource — no unwrap step
+```
+
+The client raises typed exceptions on error responses (`AuthenticationError`, `NotFoundError`, `ValidationError`, `RateLimitError`, `ServerError`, `BrokleError`). Managers translate those into domain-specific errors via a small `classifyError` helper — see `annotations/manager.ts` for the reference shape.
+
+Do NOT reintroduce per-manager fetch wrappers, `unwrapResponse` / `extractData` helpers, status-code-to-error mappers, or `APIResponse<T>` envelope types. The shared client owns both the transport and the error classification.
 
 ### Why Single Package with Sub-Exports?
 

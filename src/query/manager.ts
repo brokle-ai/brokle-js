@@ -4,14 +4,30 @@
  * Manager for querying production telemetry using filter expressions.
  */
 
-import { QueryError, QueryAPIError, InvalidFilterError } from './errors';
+import { BrokleHttpClient } from '../_http';
+import { BrokleError, ValidationError } from '../errors';
+import { InvalidFilterError } from './errors';
+
+// Backend error code for filter-parser rejection (see
+// `pkg/errors/codes.go` → CodeInvalidFilterExpression). The SDK
+// discriminates this 422 sub-kind from generic input-validation 422s
+// via the `error.code` field on the response body — matches
+// Stripe/OpenAI/JSON:API/RFC 9457 §3.1.3 convention.
+const INVALID_FILTER_CODE = 'invalid_filter_expression';
+
+function isInvalidFilterError(err: ValidationError): boolean {
+  const response = err.details?.response as Record<string, unknown> | undefined;
+  if (!response || typeof response !== 'object') return false;
+  const errorBody = response.error as Record<string, unknown> | undefined;
+  if (!errorBody || typeof errorBody !== 'object') return false;
+  return errorBody.code === INVALID_FILTER_CODE;
+}
 import type {
   QueryManagerConfig,
   QueryOptions,
   QueryResult,
   QueriedSpan,
   ValidationResult,
-  APIResponse,
   SpanQueryResponse,
   SpanData,
   TokenUsage,
@@ -111,13 +127,14 @@ function transformSpan(data: SpanData): QueriedSpan {
  * ```
  */
 export class QueryManager {
-  private baseUrl: string;
-  private apiKey: string;
+  private http: BrokleHttpClient;
   private debug: boolean;
 
   constructor(config: QueryManagerConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.apiKey = config.apiKey;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
     this.debug = config.debug ?? false;
   }
 
@@ -125,43 +142,6 @@ export class QueryManager {
     if (this.debug) {
       console.log(`[Brokle QueryManager] ${message}`, ...args);
     }
-  }
-
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new QueryAPIError(
-        `API request failed (${response.status}): ${error}`,
-        response.status
-      );
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private unwrapResponse<T>(response: APIResponse<T>): T {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new QueryError('Request failed with no error details');
-      }
-      throw new QueryAPIError(`${error.code}: ${error.message}`, undefined, error.code);
-    }
-
-    if (response.data === undefined) {
-      throw new QueryError('Response missing data field');
-    }
-
-    return response.data;
   }
 
   /**
@@ -212,13 +192,38 @@ export class QueryManager {
       requestBody.page = options.page;
     }
 
-    const rawResponse = await this.httpPost<APIResponse<SpanQueryResponse>>(
-      '/v1/spans/query',
-      requestBody
-    );
-    const data = this.unwrapResponse(rawResponse);
+    // Shared client raises typed BrokleError subclasses on 4xx/5xx.
+    // A 422 is promoted to InvalidFilterError only when the backend
+    // signals the filter-parser rejection via
+    // `error.code === "invalid_filter_expression"`. Generic input
+    // 422s (invalid limit/page/timestamp) propagate as the shared
+    // ValidationError so callers can inspect
+    // `err.details.response.error.errors` for per-field diagnostics.
+    let data: SpanQueryResponse;
+    try {
+      data = await this.http.post<SpanQueryResponse>('/v1/spans/query', requestBody);
+    } catch (error) {
+      if (error instanceof ValidationError && isInvalidFilterError(error)) {
+        throw new InvalidFilterError(options.filter, error.message);
+      }
+      throw error;
+    }
 
-    const spans = data.spans.map(transformSpan);
+    // Payload-shape failures on a 2xx response are a backend contract
+    // violation — surface as BrokleError (typed family) so callers can
+    // catch with one clause, not as a silent TypeError.
+    let spans;
+    try {
+      spans = data.spans.map(transformSpan);
+    } catch (error) {
+      throw new BrokleError(
+        `Failed to parse query response: ${(error as Error).message}`,
+        {
+          details: { response: data as unknown as Record<string, unknown> },
+          originalError: error as Error,
+        },
+      );
+    }
     const page = options.page ?? 1;
 
     this.log('Query completed', {
@@ -304,17 +309,22 @@ export class QueryManager {
     this.log('Validating filter', { filter });
 
     try {
-      const rawResponse = await this.httpPost<
-        APIResponse<{ valid: boolean; message?: string }>
-      >('/v1/spans/query/validate', { filter });
-      const data = this.unwrapResponse(rawResponse);
+      const data = await this.http.post<{ valid: boolean; message?: string }>(
+        '/v1/spans/query/validate',
+        { filter },
+      );
 
       return {
         valid: data.valid,
         message: data.message,
       };
     } catch (error) {
-      if (error instanceof QueryAPIError) {
+      // 422 = the backend parser rejected the filter. The validate()
+      // contract is a preflight check — surface the result as
+      // ValidationResult so callers can inspect `.error` rather than
+      // catching. Every other typed error (AuthenticationError,
+      // ServerError, ConnectionError, etc.) propagates unchanged.
+      if (error instanceof ValidationError) {
         return {
           valid: false,
           error: error.message,

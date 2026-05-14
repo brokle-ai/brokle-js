@@ -5,6 +5,7 @@
  * Follows Stripe/OpenAI namespace pattern: client.scores.submit()
  */
 
+import { BrokleHttpClient } from '../_http';
 import type {
   ScoresManagerConfig,
   SubmitScoreOptions,
@@ -14,11 +15,10 @@ import type {
   ScoreResult,
   ScoreValue,
   Scorer,
-  APIResponse,
   BatchScoreResult,
 } from './types';
 import { ScoreType, ScoreSource } from './types';
-import { ScoreError } from './errors';
+import { ScorerError } from './errors';
 
 /**
  * Scores API manager
@@ -51,13 +51,14 @@ import { ScoreError } from './errors';
  * ```
  */
 export class ScoresManager {
-  private baseUrl: string;
-  private apiKey: string;
+  private http: BrokleHttpClient;
   private debug: boolean;
 
   constructor(config: ScoresManagerConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.apiKey = config.apiKey;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
     this.debug = config.debug ?? false;
   }
 
@@ -65,43 +66,6 @@ export class ScoresManager {
     if (this.debug) {
       console.log(`[Brokle ScoresManager] ${message}`, ...args);
     }
-  }
-
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new ScoreError(`API request failed (${response.status}): ${error}`, response.status);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  /**
-   * Unwrap API response envelope
-   */
-  private unwrapResponse<T>(response: APIResponse<T>): T {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new ScoreError('Request failed with no error details');
-      }
-      throw new ScoreError(`${error.code}: ${error.message}`);
-    }
-
-    if (response.data === undefined) {
-      throw new ScoreError('Response missing data field');
-    }
-
-    return response.data;
   }
 
   /**
@@ -153,7 +117,10 @@ export class ScoresManager {
     }
 
     if (!name || value === undefined) {
-      throw new ScoreError('name and value required when not using scorer');
+      // Pre-network argument error — JS-idiomatic TypeError. HTTP-layer
+      // failures propagate as BrokleError subclasses from the shared
+      // client; there is no per-module wrapper by design.
+      throw new TypeError('scores.submit: name and value required when not using scorer');
     }
 
     return this.submitScore({
@@ -198,12 +165,9 @@ export class ScoresManager {
 
     this.log('Batch submitting scores', { count: requests.length });
 
-    const rawResponse = await this.httpPost<APIResponse<BatchScoreResult>>(
-      '/v1/scores/batch',
-      { scores: requests }
-    );
-
-    return this.unwrapResponse(rawResponse);
+    // The HTTP client raises typed exceptions on 4xx/5xx; a
+    // successful return means the raw body is the BatchScoreResult.
+    return this.http.post<BatchScoreResult>('/v1/scores/batch', { scores: requests });
   }
 
   private async submitWithScorer(options: SubmitScoreOptions): Promise<ScoreResponse | ScoreResponse[]> {
@@ -219,7 +183,7 @@ export class ScoresManager {
     } = options;
 
     if (!scorer) {
-      throw new ScoreError('scorer is required for scorer mode');
+      throw new TypeError('scores.submit: scorer is required for scorer mode');
     }
 
     let result: ScoreValue;
@@ -308,16 +272,16 @@ export class ScoresManager {
       ];
     }
 
-    throw new ScoreError(
-      `Scorer must return ScoreResult, ScoreResult[], number, boolean, or null, got ${typeof result}`
+    // User-provided scorer returned something we can't convert. Already
+    // covered by ScorerError's contract — the scorer's contract failed.
+    throw new ScorerError(
+      scorerName,
+      `must return ScoreResult, ScoreResult[], number, boolean, or null, got ${typeof result}`,
     );
   }
 
   private async submitScore(request: ScoreRequest): Promise<ScoreResponse> {
     this.log('Submitting score', { name: request.name, value: request.value });
-
-    const rawResponse = await this.httpPost<APIResponse<ScoreResponse>>('/v1/scores', request);
-
-    return this.unwrapResponse(rawResponse);
+    return this.http.post<ScoreResponse>('/v1/scores', request);
   }
 }

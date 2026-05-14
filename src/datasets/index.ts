@@ -48,7 +48,6 @@ export type {
   GetItemsOptions,
   GetVersionItemsOptions,
   ListDatasetsOptions,
-  APIResponse,
   KeysMapping,
   BulkImportResult,
   ImportOptions,

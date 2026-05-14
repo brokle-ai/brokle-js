@@ -59,33 +59,44 @@ function asScoreResultArray(result: unknown): ScoreResult[] {
   return result as ScoreResult[];
 }
 
+// Shared HTTP client parses success bodies via `response.text()`
+// + JSON.parse, so fixtures must expose `.text()` returning the
+// serialised JSON body. The Stripe/OpenAI contract has no
+// `{success, data}` envelope — success bodies ARE the resource.
 function makeSuccessResponse(content: string) {
+  const body = { response: { content } };
   return {
     ok: true,
-    json: async () => ({
-      success: true,
-      data: {
-        response: { content },
-      },
-    }),
+    status: 200,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    text: async () => JSON.stringify(body),
   };
 }
 
+// Non-2xx response — shared client raises a typed BrokleError
+// subclass (ServerError for 5xx). The scorer catches via its
+// try/catch and returns scoring_failed.
 function makeErrorResponse(message = 'Unknown error') {
   return {
     ok: false,
     status: 500,
-    text: async () => message,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    text: async () => JSON.stringify({ error: { type: 'api_error', message } }),
   };
 }
 
+// Backend-level playground error surfaces as a 2xx body with
+// `{error: "..."}` at the top level (the playground endpoint returns
+// 200 even when the upstream LLM call fails — the error is in the
+// body, not the status code). Tests that want the "LLM failed"
+// path use this fixture.
 function makeApiErrorResponse(message = 'Unknown error') {
+  const body = { error: message };
   return {
     ok: true,
-    json: async () => ({
-      success: false,
-      error: { message },
-    }),
+    status: 200,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    text: async () => JSON.stringify(body),
   };
 }
 

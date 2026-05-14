@@ -100,12 +100,3 @@ export interface ScoresManagerConfig {
   debug?: boolean;
 }
 
-export interface APIResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    type?: string;
-  };
-}

@@ -5,22 +5,6 @@
  */
 
 /**
- * API response envelope structure
- *
- * All Brokle API responses are wrapped in this envelope format.
- */
-export interface APIResponse<T> {
-  /** Whether the request was successful */
-  success: boolean;
-  /** The response data (only present on success) */
-  data?: T;
-  /** Error details (only present on failure) */
-  error?: APIError;
-  /** Request metadata */
-  meta?: APIMeta;
-}
-
-/**
  * API error structure
  */
 export interface APIError {

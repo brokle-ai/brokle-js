@@ -294,21 +294,24 @@ export class Brokle {
     spanName: string,
     timeout?: number
   ): Promise<T> {
-    if (!Number.isFinite(timeout) || timeout < 0) {
+    // Narrow out undefined/NaN/negative up front so the rest of the
+    // function can treat `timeout` as a concrete non-negative number.
+    if (timeout === undefined || !Number.isFinite(timeout) || timeout < 0) {
       return promise;
     }
+    const ms = timeout;
 
     // timeout=0 means immediate timeout — reject synchronously without
     // racing against the event loop (setTimeout(fn,0) is a macrotask
     // that loses to microtask-resolved callbacks).
-    if (timeout === 0) {
+    if (ms === 0) {
       promise.catch(() => {}); // prevent unhandled rejection from orphaned promise
       return Promise.reject(new SpanTimeoutError(spanName, 0));
     }
 
     let timer: ReturnType<typeof setTimeout>;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new SpanTimeoutError(spanName, timeout)), timeout);
+      timer = setTimeout(() => reject(new SpanTimeoutError(spanName, ms)), ms);
     });
 
     return Promise.race([promise, timeoutPromise]).finally(() => {
@@ -894,7 +897,7 @@ export class Brokle {
    * ```
    */
   async authCheck(): Promise<boolean> {
-    // If SDK is disabled, return false (no-op)
+    // If SDK is disabled, return false (no-op).
     if (!this.config.enabled) {
       return false;
     }
@@ -909,13 +912,10 @@ export class Brokle {
         },
         body: JSON.stringify({}),
       });
-
-      if (!response.ok) {
-        return false;
-      }
-
-      const data = (await response.json()) as { success?: boolean };
-      return data?.success === true;
+      // HTTP status IS the signal — 2xx means the backend validated
+      // the key; 4xx/5xx means something is wrong (bad key, server
+      // down, etc.). No body inspection needed.
+      return response.ok;
     } catch {
       return false;
     }

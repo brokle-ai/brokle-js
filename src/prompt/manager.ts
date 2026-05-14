@@ -5,6 +5,13 @@
  * Supports caching with stale-while-revalidate pattern.
  */
 
+import { BrokleHttpClient } from '../_http';
+import {
+  BrokleError,
+  NotFoundError,
+  RateLimitError,
+  ServerError,
+} from '../errors';
 import type {
   PromptData,
   PromptConfig,
@@ -12,7 +19,6 @@ import type {
   ListPromptsOptions,
   PaginatedResponse,
   UpsertPromptRequest,
-  APIResponse,
   APIPagination,
 } from './types';
 import { PromptCache, type CacheOptions } from './cache';
@@ -37,8 +43,7 @@ export interface PromptManagerConfig {
  * Prompt API manager with caching and SWR support
  */
 export class PromptManager {
-  private baseUrl: string;
-  private apiKey: string;
+  private http: BrokleHttpClient;
   private cache: PromptCache<PromptData>;
   private debug: boolean;
   private maxRetries: number;
@@ -46,8 +51,10 @@ export class PromptManager {
   private cacheTtlSeconds: number;
 
   constructor(config: PromptManagerConfig) {
-    this.baseUrl = config.baseUrl.replace(/\/$/, '');
-    this.apiKey = config.apiKey;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
     this.debug = config.debug ?? false;
 
     const promptConfig = config.config ?? {};
@@ -67,270 +74,73 @@ export class PromptManager {
     this.cacheTtlSeconds = promptConfig.cacheTtlSeconds ?? 60;
   }
 
-  /**
-   * Make an HTTP GET request
-   */
-  private async httpGet<T>(
-    path: string,
-    params?: Record<string, string | number | boolean | undefined>
-  ): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          url.searchParams.set(key, String(value));
-        }
-      });
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  /**
-   * Make an HTTP POST request
-   */
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  /**
-   * Log debug messages
-   */
   private log(message: string, ...args: unknown[]): void {
     if (this.debug) {
       console.log(`[Brokle PromptManager] ${message}`, ...args);
     }
   }
 
-  /**
-   * Sleep for a specified duration
-   */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
-   * Extract status code from error
+   * withRetry wraps a single HTTP call with exponential-backoff retry.
+   * Retries on 5xx and 429 (rate-limit); aborts immediately on other
+   * 4xx errors (401/403/404/409/422 — deterministic, retrying never
+   * helps). 404 is re-thrown as `PromptNotFoundError` when a prompt
+   * name is provided so callers can distinguish missing-resource from
+   * generic fetch failure.
    */
-  private extractStatusCode(error: any): number | undefined {
-    if (typeof error?.message === 'string') {
-      const match = error.message.match(/\((\d{3})\)/);
-      if (match) return parseInt(match[1], 10);
-    }
-    return undefined;
-  }
-
-  /**
-   * Map error code to HTTP status code
-   */
-  private mapErrorCodeToStatus(code: string): number {
-    const mapping: Record<string, number> = {
-      not_found: 404,
-      validation_error: 400,
-      unauthorized: 401,
-      forbidden: 403,
-      conflict: 409,
-      rate_limit: 429,
-      internal_error: 500,
-    };
-    return mapping[code] ?? 500;
-  }
-
-  /**
-   * Unwrap API response envelope
-   *
-   * Backend returns: {"success": bool, "data": {...}, "error": {...}, "meta": {...}}
-   * This extracts the data or throws appropriate error.
-   */
-  private unwrapResponse<T>(
-    response: APIResponse<T>,
+  private async withRetry<T>(
+    fn: () => Promise<T>,
     promptName?: string,
-    options?: { version?: number; label?: string }
-  ): T {
-    // Check for error response
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new PromptFetchError('Request failed with no error details');
-      }
-
-      // Map error types to exceptions
-      if (
-        (error.type === 'not_found' || error.code === 'not_found') &&
-        promptName
-      ) {
-        throw new PromptNotFoundError(promptName, options);
-      }
-
-      throw new PromptFetchError(
-        `${error.code}: ${error.message}`,
-        this.mapErrorCodeToStatus(error.code)
-      );
-    }
-
-    // Extract data
-    if (response.data === undefined) {
-      throw new PromptFetchError('Response missing data field');
-    }
-
-    return response.data;
-  }
-
-  /**
-   * Unwrap paginated API response
-   *
-   * Returns both the data array and pagination info.
-   */
-  private unwrapPaginatedResponse<T>(
-    response: APIResponse<T[]>
-  ): { data: T[]; pagination: APIPagination } {
-    // Check for error response
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new PromptFetchError('Request failed with no error details');
-      }
-
-      throw new PromptFetchError(
-        `${error.code}: ${error.message}`,
-        this.mapErrorCodeToStatus(error.code)
-      );
-    }
-
-    const data = response.data ?? [];
-    const pagination = response.meta?.pagination ?? {
-      page: 1,
-      limit: 20,
-      total: 0,
-      total_pages: 0,
-      has_next: false,
-      has_prev: false,
-    };
-
-    return { data, pagination };
-  }
-
-  /**
-   * Make HTTP GET with retry logic
-   */
-  private async httpGetWithRetry<T>(
-    path: string,
-    params?: Record<string, string | number | boolean | undefined>,
-    promptName?: string,
-    options?: { version?: number; label?: string }
+    options?: { version?: number; label?: string },
   ): Promise<T> {
-    let lastError: Error | null = null;
+    let lastError: unknown;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
-        return await this.httpGet<T>(path, params);
+        return await fn();
       } catch (error) {
-        lastError = error as Error;
-        const statusCode = this.extractStatusCode(error);
+        lastError = error;
 
-        if (statusCode === 404 && promptName) {
+        // NotFound surfaces as a typed domain error immediately.
+        if (error instanceof NotFoundError && promptName) {
           throw new PromptNotFoundError(promptName, options);
         }
 
-        // Don't retry on 4xx errors (except 429 rate limit)
-        if (
-          statusCode &&
-          statusCode >= 400 &&
-          statusCode < 500 &&
-          statusCode !== 429
-        ) {
-          throw new PromptFetchError(
-            `HTTP ${statusCode}: ${(error as Error).message}`,
-            statusCode
-          );
+        // Retryable: 5xx + rate limit. Everything else is final.
+        const retryable =
+          error instanceof ServerError || error instanceof RateLimitError;
+        if (!retryable) {
+          if (error instanceof BrokleError) {
+            const status = error.details.statusCode;
+            throw new PromptFetchError(
+              `${error.message}`,
+              typeof status === 'number' ? status : undefined,
+            );
+          }
+          throw error;
         }
 
-        // Wait before retry (exponential backoff)
         if (attempt < this.maxRetries) {
           const delay = this.retryDelay * Math.pow(2, attempt);
-          this.log(
-            `Request failed, retrying in ${delay}ms (attempt ${attempt + 1})`
-          );
+          this.log(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1})`);
           await this.sleep(delay);
         }
       }
     }
 
+    const message =
+      lastError instanceof Error ? lastError.message : String(lastError);
+    const status =
+      lastError instanceof BrokleError && typeof lastError.details.statusCode === 'number'
+        ? lastError.details.statusCode
+        : undefined;
     throw new PromptFetchError(
-      `Request failed after ${this.maxRetries + 1} attempts: ${lastError?.message}`,
-      this.extractStatusCode(lastError)
-    );
-  }
-
-  /**
-   * Make HTTP POST with retry logic
-   */
-  private async httpPostWithRetry<T>(
-    path: string,
-    body: unknown
-  ): Promise<T> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      try {
-        return await this.httpPost<T>(path, body);
-      } catch (error) {
-        lastError = error as Error;
-        const statusCode = this.extractStatusCode(error);
-
-        // Don't retry on 4xx errors (except 429)
-        if (
-          statusCode &&
-          statusCode >= 400 &&
-          statusCode < 500 &&
-          statusCode !== 429
-        ) {
-          throw new PromptFetchError(
-            `HTTP ${statusCode}: ${(error as Error).message}`,
-            statusCode
-          );
-        }
-
-        // Exponential backoff
-        if (attempt < this.maxRetries) {
-          const delay = this.retryDelay * Math.pow(2, attempt);
-          this.log(
-            `Request failed, retrying in ${delay}ms (attempt ${attempt + 1})`
-          );
-          await this.sleep(delay);
-        }
-      }
-    }
-
-    throw new PromptFetchError(
-      `Request failed after ${this.maxRetries + 1} attempts: ${lastError?.message}`
+      `Request failed after ${this.maxRetries + 1} attempts: ${message}`,
+      status,
     );
   }
 
@@ -339,7 +149,7 @@ export class PromptManager {
    */
   private async fetchPrompt(
     name: string,
-    options?: GetPromptOptions
+    options?: GetPromptOptions,
   ): Promise<PromptData> {
     const params: Record<string, string | number | undefined> = {};
     if (options?.label) params.label = options.label;
@@ -347,17 +157,19 @@ export class PromptManager {
 
     this.log(`Fetching prompt: ${name}`, params);
 
-    const rawResponse = await this.httpGetWithRetry<APIResponse<PromptData>>(
-      `/v1/prompts/${name}`,
-      params,
+    // Retry wrapper catches transient server/rate-limit failures.
+    // On 404 the shared HTTP client raises NotFoundError, which
+    // withRetry converts to PromptNotFoundError(name, options).
+    return this.withRetry(
+      () =>
+        this.http.get<PromptData>(`/v1/prompts/${name}`, {
+          params,
+          resourceType: 'prompt',
+          identifier: name,
+        }),
       name,
-      { version: options?.version, label: options?.label }
+      { version: options?.version, label: options?.label },
     );
-
-    return this.unwrapResponse(rawResponse, name, {
-      version: options?.version,
-      label: options?.label,
-    });
   }
 
   /**
@@ -502,14 +314,24 @@ export class PromptManager {
     }
 
     this.log('Listing prompts', params);
-    const rawResponse = await this.httpGet<APIResponse<PromptData[]>>(
-      '/v1/prompts',
-      params
-    );
-    const { data, pagination } = this.unwrapPaginatedResponse(rawResponse);
+
+    // List endpoints speak the Stripe/OpenAI contract: inline
+    // `{data: [...], pagination: {...}}` body, no envelope wrapper.
+    const body = await this.http.get<{
+      data: PromptData[];
+      pagination: APIPagination;
+    }>('/v1/prompts', { params });
+    const pagination = body.pagination ?? {
+      page: 1,
+      limit: 20,
+      total: 0,
+      total_pages: 0,
+      has_next: false,
+      has_prev: false,
+    };
 
     return {
-      data: data.map((d) => Prompt.fromData(d)),
+      data: (body.data ?? []).map((d) => Prompt.fromData(d)),
       pagination: {
         total: pagination.total,
         page: pagination.page,
@@ -549,11 +371,13 @@ export class PromptManager {
    */
   async upsert(request: UpsertPromptRequest): Promise<Prompt> {
     this.log(`Upserting prompt: ${request.name}`);
-    const rawResponse = await this.httpPostWithRetry<APIResponse<PromptData>>(
-      '/v1/prompts',
-      request
+    // Upsert with retry on transient failures. The response body is
+    // the created/updated prompt, but we don't consume it — we
+    // invalidate the cache and re-fetch via `get()` to ensure
+    // the cached entry is the authoritative server-side shape.
+    await this.withRetry(() =>
+      this.http.post<PromptData>('/v1/prompts', request),
     );
-    this.unwrapResponse(rawResponse, request.name);
 
     this.invalidate(request.name);
 

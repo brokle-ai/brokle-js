@@ -5,13 +5,14 @@
  * Follows Stripe/OpenAI namespace pattern: client.datasets.create()
  */
 
+import { BrokleHttpClient } from '../_http';
+import { BrokleError } from '../errors';
 import type {
   DatasetsManagerConfig,
   CreateDatasetOptions,
   ListDatasetsOptions,
   UpdateDatasetOptions,
   DatasetData,
-  APIResponse,
 } from './types';
 import { Dataset } from './dataset';
 import { DatasetError } from './errors';
@@ -37,6 +38,9 @@ import { DatasetError } from './errors';
  * ```
  */
 export class DatasetsManager {
+  private http: BrokleHttpClient;
+  // baseUrl + apiKey + debug are retained so we can construct
+  // per-dataset `Dataset` instances (which own their own HTTP client).
   private baseUrl: string;
   private apiKey: string;
   private debug: boolean;
@@ -45,6 +49,10 @@ export class DatasetsManager {
     this.baseUrl = config.baseUrl.replace(/\/$/, '');
     this.apiKey = config.apiKey;
     this.debug = config.debug ?? false;
+    this.http = new BrokleHttpClient({
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+    });
   }
 
   private log(message: string, ...args: unknown[]): void {
@@ -53,93 +61,24 @@ export class DatasetsManager {
     }
   }
 
-  private async httpPost<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new DatasetError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpGet<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-    const url = new URL(`${this.baseUrl}${path}`);
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, String(value));
-      });
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new DatasetError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpPatch<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'PATCH',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new DatasetError(`API request failed (${response.status}): ${error}`);
-    }
-
-    return response.json() as Promise<T>;
-  }
-
-  private async httpDelete(path: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      method: 'DELETE',
-      headers: {
-        'X-API-Key': this.apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new DatasetError(`API request failed (${response.status}): ${error}`);
-    }
-  }
-
-  private unwrapResponse<T>(response: APIResponse<T>): T {
-    if (!response.success) {
-      const error = response.error;
-      if (!error) {
-        throw new DatasetError('Request failed with no error details');
+  /**
+   * call wraps an HTTP call so any BrokleError subclass is re-thrown
+   * as a DatasetError. Public consumers catching `DatasetError` keep
+   * working unchanged across the envelope migration.
+   */
+  private async call<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof DatasetError) throw error;
+      if (error instanceof BrokleError) {
+        throw new DatasetError(error.message);
       }
-      throw new DatasetError(`${error.code}: ${error.message}`);
+      if (error instanceof Error) {
+        throw new DatasetError(error.message);
+      }
+      throw new DatasetError(String(error));
     }
-
-    if (response.data === undefined) {
-      throw new DatasetError('Response missing data field');
-    }
-
-    return response.data;
   }
 
   /**
@@ -162,9 +101,7 @@ export class DatasetsManager {
    */
   async create(options: CreateDatasetOptions): Promise<Dataset> {
     this.log('Creating dataset', { name: options.name });
-
-    const rawResponse = await this.httpPost<APIResponse<DatasetData>>('/v1/datasets', options);
-    const data = this.unwrapResponse(rawResponse);
+    const data = await this.call(() => this.http.post<DatasetData>('/v1/datasets', options));
 
     return new Dataset(
       { baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug },
@@ -189,9 +126,12 @@ export class DatasetsManager {
    */
   async get(datasetId: string): Promise<Dataset> {
     this.log('Getting dataset', { id: datasetId });
-
-    const rawResponse = await this.httpGet<APIResponse<DatasetData>>(`/v1/datasets/${datasetId}`);
-    const data = this.unwrapResponse(rawResponse);
+    const data = await this.call(() =>
+      this.http.get<DatasetData>(`/v1/datasets/${datasetId}`, {
+        resourceType: 'dataset',
+        identifier: datasetId,
+      }),
+    );
 
     return new Dataset(
       { baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug },
@@ -218,16 +158,16 @@ export class DatasetsManager {
 
     this.log('Listing datasets', { limit, page });
 
-    const rawResponse = await this.httpGet<APIResponse<DatasetData[]>>(
-      '/v1/datasets',
-      { limit, page }
+    // Inline `{data, pagination}` list shape.
+    const body = await this.call(() =>
+      this.http.get<{ data: DatasetData[]; pagination?: unknown }>(
+        '/v1/datasets',
+        { params: { limit, page } },
+      ),
     );
 
-    const data = this.unwrapResponse(rawResponse);
-
-    return data.map(
-      (d) =>
-        new Dataset({ baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug }, d)
+    return (body.data ?? []).map(
+      (d) => new Dataset({ baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug }, d),
     );
   }
 
@@ -252,12 +192,12 @@ export class DatasetsManager {
     }
 
     this.log('Updating dataset', { id: datasetId });
-
-    const rawResponse = await this.httpPatch<APIResponse<DatasetData>>(
-      `/v1/datasets/${datasetId}`,
-      options
+    const data = await this.call(() =>
+      this.http.patch<DatasetData>(`/v1/datasets/${datasetId}`, options, {
+        resourceType: 'dataset',
+        identifier: datasetId,
+      }),
     );
-    const data = this.unwrapResponse(rawResponse);
 
     return new Dataset(
       { baseUrl: this.baseUrl, apiKey: this.apiKey, debug: this.debug },
@@ -277,6 +217,11 @@ export class DatasetsManager {
    */
   async delete(datasetId: string): Promise<void> {
     this.log('Deleting dataset', { id: datasetId });
-    await this.httpDelete(`/v1/datasets/${datasetId}`);
+    await this.call(() =>
+      this.http.delete(`/v1/datasets/${datasetId}`, {
+        resourceType: 'dataset',
+        identifier: datasetId,
+      }),
+    );
   }
 }

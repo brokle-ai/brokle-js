@@ -126,17 +126,6 @@ export interface APIMeta {
   pagination?: APIPagination;
 }
 
-export interface APIResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    type?: string;
-  };
-  meta?: APIMeta;
-}
-
 export interface ExperimentData {
   id: string;
   name: string;

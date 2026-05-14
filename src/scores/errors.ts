@@ -1,27 +1,25 @@
 /**
- * Score Error Classes
+ * Score Module Errors
  *
- * Error hierarchy for score operations.
+ * The scores module exposes ONE axis-2 error:
+ *
+ *   ScorerError  – a user-provided scorer function failed or returned
+ *                  an unsupported value. Raised BEFORE any HTTP call
+ *                  crosses the wire, so it never represents a backend
+ *                  or transport failure — hence it extends `Error`, not
+ *                  `BrokleError`.
+ *
+ * Every HTTP-layer failure (auth, network, validation, 5xx) propagates
+ * as the shared `BrokleError` subclass the HTTP client raised — there
+ * is no module-local wrapper by design. See `sdk/javascript/src/errors.ts`
+ * and root CLAUDE.md gotcha on the two-axis error model.
  */
 
 /**
- * Base error for score operations
- */
-export class ScoreError extends Error {
-  public readonly statusCode?: number;
-
-  constructor(message: string, statusCode?: number) {
-    super(message);
-    this.name = 'ScoreError';
-    this.statusCode = statusCode;
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ScoreError);
-    }
-  }
-}
-
-/**
- * Error executing scorer function
+ * A user-provided scorer function failed or returned an unsupported value.
+ *
+ * Raised purely client-side, before any request reaches the backend.
+ * Catch directly or inspect `.scorerName` / `.cause` for diagnostics.
  */
 export class ScorerError extends Error {
   public readonly scorerName: string;

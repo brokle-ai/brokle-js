@@ -52,7 +52,6 @@ export type {
   ScoreRequest,
   ScoreResponse,
   BatchScoreResult,
-  APIResponse,
 } from './types';
 
-export { ScoreError, ScorerError } from './errors';
+export { ScorerError } from './errors';

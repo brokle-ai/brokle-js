@@ -49,7 +49,6 @@ export type {
   ListItemsResult,
   ListItemsOptions,
   ScoreSubmission,
-  APIResponse,
 } from './types';
 export {
   AnnotationError,
